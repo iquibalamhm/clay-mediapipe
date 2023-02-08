@@ -52,3 +52,84 @@ cc_binary(
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )
+
+# Linux only
+cc_binary(
+    name = "multi_hand_tracking_landmarks_gpu",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:multi_hand_tracking_landmarks_gpu",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# Linux only
+cc_binary(
+    name = "hand_tracking_gpu_clay",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:game",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+# Linux game for playing with clay
+cc_binary(
+    name = "game",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:main",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# Linux game for playing with clay
+cc_binary(
+    name = "game_mediapipe",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:main_mediapipe",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# Linux game for playing with clay
+cc_binary(
+    name = "share_memory",
+    deps = [
+        "//mediapipe/examples/desktop:share_memory",
+    ],
+)
+
+# Linux game for playing with clay
+cc_binary(
+    name = "read_memory",
+    deps = [
+        "//mediapipe/examples/desktop:read_memory",
+    ],
+)
+# Linux game for playing with clay
+cc_binary(
+    name = "read_memory_vector",
+    deps = [
+        "//mediapipe/examples/desktop:read_memory_vector",
+    ],
+)
+# Linux game for playing with clay
+cc_binary(
+    name = "share_memory_vector",
+    deps = [
+        "//mediapipe/examples/desktop:share_memory_vector",
+    ],
+)
