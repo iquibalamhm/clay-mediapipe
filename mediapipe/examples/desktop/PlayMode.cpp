@@ -16,6 +16,8 @@
 #include <cmath>
 #include <vector>
 #include <eigen3/Eigen/QR>
+#include <boost/thread.hpp>
+
 
 PlayMode::PlayMode() {
 	reset_clay();
@@ -59,7 +61,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		mouse_at.x =-1.0f + 2.0f * (evt.motion.x + 0.5f) / float(window_size.x);
 		//std::cout<<window_size.x<<" "<<window_size.y<<" "<<std::endl;
 		mouse_at.y = 1.0f - 2.0f * (evt.motion.y + 0.5f) / float(window_size.y);
-		std::cout<<"x: "<<mouse_at.x<<"  y:"<<mouse_at.y<<"  evt x:"<<evt.motion.x<<"  evt y:"<<evt.motion.y<<" "<<window_size.x<<" "<<window_size.y<<" "<<std::endl;
+		//std::cout<<"x: "<<mouse_at.x<<"  y:"<<mouse_at.y<<"  evt x:"<<evt.motion.x<<"  evt y:"<<evt.motion.y<<" "<<window_size.x<<" "<<window_size.y<<" "<<std::endl;
 		do_hand_movement = false;
 	} else if (evt.type == SDL_USEREVENT){
 		std::vector<int>* coordinates = static_cast<std::vector<int>*>(evt.user.data1);
@@ -67,7 +69,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
         int y1 = (*coordinates)[1];
 		int x2 = (*coordinates)[2];
         int y2 = (*coordinates)[3];
-        std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< std::endl;
+        //std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< std::endl;
         delete coordinates;
 		index_1_at.x =-1.0f + 2.0f * (x1 + 0.5f) / float(window_size.x);
 		index_1_at.y = 1.0f - 2.0f * (y1 + 0.5f) / float(window_size.y);
@@ -153,7 +155,7 @@ void PlayMode::update(float elapsed) {
 		}
 		if (do_hand_movement){
 			//std::cout<<"hand found"<<std::endl;
-			std::cout<<"index_1_at: "<<index_1_at.x<<" "<<index_1_at.y<<"  thumb_1_at: "<<thumb_1_at.x<<" "<<thumb_1_at.y<<std::endl;
+			//std::cout<<"index_1_at: "<<index_1_at.x<<" "<<index_1_at.y<<"  thumb_1_at: "<<thumb_1_at.x<<" "<<thumb_1_at.y<<std::endl;
 			glm::vec2 at_2;
 			glm::vec2 at_1;
 			at_2.x = (index_1_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
@@ -174,17 +176,6 @@ void PlayMode::update(float elapsed) {
 			}
 			probes[0].target = at_1 - 0.5f * gap;
 			probes[1].target = at_2 + 0.5f * gap;
-			std::cout<<"at_1.x: "<<at_1.x<<" "<<at_1.y<<"  at_2.x: "<<at_2.x<<" "<<at_2.y<<std::endl;
-			//pass;
-			// try{
-			// 	throw "division by zero error";
-			// 	probes[0].target = index_1_at;
-			// 	probes[1].target = thumb_1_at;
-
-			// }
-			// catch(const char* msg){
-			// 	std::cout<<"Unable to move hands"<<msg<<std::endl;
-			// }
 
 			//glm::vec2 at;
 		}
@@ -204,7 +195,7 @@ void PlayMode::update(float elapsed) {
 			}
 			probes[0].target = at - 0.5f * gap;
 			probes[1].target = at + 0.5f * gap;
-			std::cout<<"target: "<<probes[0].target[0]<<" "<<probes[0].target[1]<<"  pos: "<<probes[0].pos[0]<<" "<<probes[0].pos[1]<<"  gap: "<<gap[0]<<" "<<gap[1]<<" "<<std::endl;
+
 		} else {
 			probes.clear();
 		}
@@ -295,16 +286,21 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		if (ticks_acc % fit_step == 0){
 			// std::cout<<" ran 100 ticks"<<std::endl;
 			//Fit line and compute error
-			float err_1;
-			std::vector<double> coeff_1;
-			polyfit(xs, ys, coeff_1, err_1,1);
+			
+			float err_1,err_2;
+			std::vector<double> coeff_1,coeff_2;
+			//boost::thread t(polyfit(xs, ys, coeff_1, err_1,1));
+			boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
+    		
 			//Fit parabola and compute error
-			float err_2;
-			std::vector<double> coeff_2;
-			polyfit(xs, ys, coeff_2, err_2,2);
+			//polyfit(xs, ys, coeff_2, err_2,2);
+			boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
+    		t1.join();
+			t2.join();
 			//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
 			std::string curr_fitted_text ="";
 			if(err_1-1 < err_2){
+				poly_order = 1;
 				coeff = coeff_1;
 				curr_fitted_text.append(std::to_string(coeff[1]));
 				curr_fitted_text.append(" x + ");
@@ -312,6 +308,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				fitted_text = curr_fitted_text;
 			}
 			else{
+				poly_order = 2;
 				coeff = coeff_2;
 				curr_fitted_text.append(std::to_string(coeff[2]));
 				curr_fitted_text.append(" x^2 + ");

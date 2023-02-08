@@ -195,35 +195,14 @@ int main(int argc, char **argv) {
 				// event.user.data1 = &coordinates;
 				std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3]});
     			event.user.data1 = coordinates;
-				// if (SDL_PushEvent(&event) != 0) {
-				// 	std::cerr << "Error: " << SDL_GetError() << std::endl;
+
+				// for (int i = 0; i < 4; i++) {
+				// 	std::cout << (*coordinates)[i] << " ";
 				// }
-				for (int i = 0; i < 4; i++) {
-					std::cout << (*coordinates)[i] << " ";
-				}
-				std::cout << "  <- coordinates"<<std::endl;
+				//std::cout << "  <- coordinates"<<std::endl;
 
 				SDL_PushEvent(&event);
-				myvector->clear();
-				//std::cout<<diff_y<<std::endl;
-				// SDL_Event event_pinch;
-				// if (flag_closed == false){
-				// 	if(diff_y<150){
-				// 		event_pinch.type = SDL_MOUSEBUTTONDOWN;
-				// 		event_pinch.button.button == SDL_BUTTON_LEFT;
-				// 		//SDL_PushEvent(&event_pinch);
-				// 		flag_closed = true;
-				// 	} 
-				// }
-				// else{
-				// 	if(diff_y>=150){
-				// 		event_pinch.type = SDL_MOUSEBUTTONUP;
-				// 		event_pinch.button.button == SDL_BUTTON_LEFT;
-				// 		//SDL_PushEvent(&event_pinch);
-				// 		flag_closed = false;
-				// 	} 
-				// }
-				
+				myvector->clear();			
 				
 			}			
 

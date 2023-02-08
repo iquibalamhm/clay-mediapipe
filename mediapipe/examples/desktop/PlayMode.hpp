@@ -74,7 +74,7 @@ struct PlayMode : Mode {
 	std::vector<double> coeff  = {0.0f,1.0f};
 	uint32_t parabola_step = 10;
 	uint32_t poly_order = 2;
-	uint32_t fit_step = 50;
+	uint32_t fit_step = 10;
 	//ad-hoc performance measurement:
 
 
