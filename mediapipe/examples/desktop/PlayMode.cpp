@@ -337,7 +337,6 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		if (ticks_acc % fit_step == 0){
 			// std::cout<<" ran 100 ticks"<<std::endl;
 			//Fit line and compute error
-			
 			float err_1,err_2;
 			std::vector<double> coeff_1,coeff_2;
 			//boost::thread t(polyfit(xs, ys, coeff_1, err_1,1));
