@@ -20,15 +20,21 @@ struct PlayMode : Mode {
 
 
 	glm::vec2 mouse_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
+	
+	//First hand coordinates
 	glm::vec2 index_1_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 	glm::vec2 thumb_1_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 
+	//Second hand coordinates
+	glm::vec2 index_2_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
+	glm::vec2 thumb_2_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
+	
 	bool do_pinch = false;
 	//stored on each draw, used on each update:
 	glm::mat4 world_to_clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f);
 
 	float time_acc = 0.0f;
-
+	int num_hands = 1;
 	struct Particle {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
 		glm::vec2 vel = glm::vec2(0.0f, 0.0f);

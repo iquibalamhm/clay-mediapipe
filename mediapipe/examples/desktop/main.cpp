@@ -128,8 +128,7 @@ int main(int argc, char **argv) {
 		if (SDL_GL_SetSwapInterval(1) != 0) {
 			std::cerr << "NOTE: couldn't set vsync (" << SDL_GetError() << ")." << std::endl;
 		}
-	}
-
+	}	
 	//Hide mouse cursor (note: showing can be useful for debugging):
 	//SDL_ShowCursor(SDL_DISABLE);
 
@@ -193,13 +192,24 @@ int main(int argc, char **argv) {
 				event.type = SDL_USEREVENT;
 				// std::vector<int> coordinates = {(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3]};
 				// event.user.data1 = &coordinates;
-				std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3]});
-    			event.user.data1 = coordinates;
-
-				// for (int i = 0; i < 4; i++) {
-				// 	std::cout << (*coordinates)[i] << " ";
-				// }
-				//std::cout << "  <- coordinates"<<std::endl;
+				int num_hands = (*myvector)[0];
+				if (num_hands==1){
+					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4]});
+					event.user.data1 = coordinates;
+					// for (int i = 1; i < 5; i++) {
+					// 	std::cout << (*coordinates)[i] << " ";
+					// }
+					// std::cout << "  <- coordinates"<<std::endl;
+				}
+				else{
+					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],
+														(*myvector)[5],(*myvector)[6],(*myvector)[7],(*myvector)[8]});
+					event.user.data1 = coordinates;
+					// for (int i = 1; i < 9; i++) {
+					// 	std::cout << (*coordinates)[i] << " ";
+					// }
+					// std::cout << "  <- coordinates"<<std::endl;
+				}
 
 				SDL_PushEvent(&event);
 				myvector->clear();			

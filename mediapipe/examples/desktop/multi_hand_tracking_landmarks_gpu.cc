@@ -220,11 +220,27 @@ absl::Status RunMPPGraph() {
         // Write the data to shared memory
         myvector->clear();
         //for (int i = 0; i < 2; i++) {
-        myvector->push_back(hand_landmarks[16]); //pointing finger
-        myvector->push_back(hand_landmarks[17]);
-
-        myvector->push_back(hand_landmarks[8]); //thumb finger
-        myvector->push_back(hand_landmarks[9]);
+        if (hand_landmarks.size()==42){
+          myvector->push_back(1); //num_hands
+          myvector->push_back(hand_landmarks[16]); //pointing finger
+          myvector->push_back(hand_landmarks[17]);
+          myvector->push_back(hand_landmarks[8]); //thumb finger
+          myvector->push_back(hand_landmarks[9]);
+        }
+        else if(hand_landmarks.size()==84){
+          myvector->push_back(2); //num_hands
+          //HAND 1
+          myvector->push_back(hand_landmarks[16]); //pointing finger
+          myvector->push_back(hand_landmarks[17]);
+          myvector->push_back(hand_landmarks[8]); //thumb finger
+          myvector->push_back(hand_landmarks[9]);
+          
+          //HAND 2
+          myvector->push_back(hand_landmarks[58]); //pointing finger
+          myvector->push_back(hand_landmarks[59]);
+          myvector->push_back(hand_landmarks[50]); //thumb finger
+          myvector->push_back(hand_landmarks[51]);
+        }
         //}
         // for (int i = 0; i < 4; i++) {
         //     myvector->push_back(rand() % 100);

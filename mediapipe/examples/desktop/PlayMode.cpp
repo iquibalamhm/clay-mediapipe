@@ -65,11 +65,32 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		do_hand_movement = false;
 	} else if (evt.type == SDL_USEREVENT){
 		std::vector<int>* coordinates = static_cast<std::vector<int>*>(evt.user.data1);
-        int x1 = (*coordinates)[0];
-        int y1 = (*coordinates)[1];
-		int x2 = (*coordinates)[2];
-        int y2 = (*coordinates)[3];
-        //std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< std::endl;
+		num_hands  = (*coordinates)[0];
+		int x1,x2,x3,x4,y1,y2,y3,y4;
+		if (num_hands == 1){
+			x1 = (*coordinates)[1];
+			y1 = (*coordinates)[2];
+			x2 = (*coordinates)[3];
+			y2 = (*coordinates)[4];
+			
+		}
+		else{
+			x1 = (*coordinates)[1];
+			y1 = (*coordinates)[2];
+			x2 = (*coordinates)[3];
+			y2 = (*coordinates)[4];
+			x3 = (*coordinates)[5];
+			y3 = (*coordinates)[6];
+			x4 = (*coordinates)[7];
+			y4 = (*coordinates)[8];
+
+			index_2_at.x =-1.0f + 2.0f * (x3 + 0.5f) / float(window_size.x);
+			index_2_at.y = 1.0f - 2.0f * (y3 + 0.5f) / float(window_size.y);
+			thumb_2_at.x = -1.0f + 2.0f * (x4 + 0.5f) / float(window_size.x);
+			thumb_2_at.y = 1.0f - 2.0f * (y4 + 0.5f) / float(window_size.y);
+        	//std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< "(" << x3 << ", " << y3 << " " <<x4 << ", " << y4 << ")"<<std::endl;
+		}
+
         delete coordinates;
 		index_1_at.x =-1.0f + 2.0f * (x1 + 0.5f) / float(window_size.x);
 		index_1_at.y = 1.0f - 2.0f * (y1 + 0.5f) / float(window_size.y);
@@ -88,7 +109,7 @@ float l2_norm(std::vector<double> const& u) {
     return sqrt(accum);
 }
 void PlayMode::polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &l2_error,int order){
-	// Create Matrix Placeholder of size n x k, n= number of datapoints, k = order of polynomial, for exame k = 3 for cubic polynomial
+	// Create Matrix Placeholder of size n x k, n= number of datapoints, k = order of polynomial, for example k = 3 for cubic polynomial
 	//Fit a line
 	Eigen::MatrixXd X(x.size(), order + 1);
 	Eigen::VectorXd Y = Eigen::VectorXd::Map(&y.front(), y.size());
@@ -127,10 +148,7 @@ void PlayMode::polyfit(const std::vector<double> &x, const std::vector<double> &
 			err.push_back(cerr);
 		}
 	}
-
 	l2_error = l2_norm(err);
-
-
 }
 
 void PlayMode::update(float elapsed) {
@@ -156,8 +174,7 @@ void PlayMode::update(float elapsed) {
 		if (do_hand_movement){
 			//std::cout<<"hand found"<<std::endl;
 			//std::cout<<"index_1_at: "<<index_1_at.x<<" "<<index_1_at.y<<"  thumb_1_at: "<<thumb_1_at.x<<" "<<thumb_1_at.y<<std::endl;
-			glm::vec2 at_2;
-			glm::vec2 at_1;
+			glm::vec2 at_1, at_2;
 			at_2.x = (index_1_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
 			at_2.y = (index_1_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
 			at_1.x = (thumb_1_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
@@ -168,16 +185,50 @@ void PlayMode::update(float elapsed) {
 			// std::cout<<"at.x: "<<at_1.x<<" "<<at_1.y<<std::endl;
 			//probes[0].target = at_1;
 			//probes[1].target = at_2;
-			if (probes.size() != 2) {
-				probes.assign(2, Probe());
-				probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
-				probes[1].pos = at_2 + 0.5f * gap;
-				std::cout<<" here";
-			}
-			probes[0].target = at_1 - 0.5f * gap;
-			probes[1].target = at_2 + 0.5f * gap;
+			if (num_hands ==1){
+				if (probes.size() != 2) {
+					probes.assign(2, Probe());
+					probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
+					probes[1].pos = at_2 + 0.5f * gap;
+					std::cout<<" here 1";
+				}
+				probes[0].target = at_1 - 0.5f * gap;
+				probes[1].target = at_2 + 0.5f * gap;
+			} else if (num_hands == 2){
+				glm::vec2 at_3, at_4;
+				at_4.x = (index_2_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
+				at_4.y = (index_2_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
+				at_3.x = (thumb_2_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
+				at_3.y = (thumb_2_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
+				//The number 10.f is the min gap that can happen between the probes
+				//glm::vec2 gap = glm::mix(1.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
+				// std::cout << "At: (" << at_1.x << ", " << at_1.y << " " <<at_2.x << ", " << at_2.y << ")"<<
+				// 			 "(" << at_3.x << ", " << at_3.y << " " <<at_4.x << ", " << at_4.y << ")"<<std::endl;
 
-			//glm::vec2 at;
+				//std::cout<<"at.x: "<<at_3.x<<" "<<at_3.y<<std::endl;
+				//probes[0].target = at_1;
+				//probes[1].target = at_2;
+				if (probes.size() != 4) {
+					probes.assign(4, Probe());
+					probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
+					probes[1].pos = at_2 + 0.5f * gap;
+					probes[2].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
+					probes[3].pos = at_4 + 0.5f * gap;
+					std::cout<<" here 2 "<<std::endl;
+				}
+
+				probes[0].target = at_1 - 0.5f * gap;
+				probes[1].target = at_2 + 0.5f * gap;
+
+				probes[2].target = at_3 - 0.5f * gap;
+				probes[3].target = at_4 + 0.5f * gap;
+			}
+
+			for (auto const &p : probes) {
+				continue;
+				std::cout<<"pos : "<<p.pos.x<<" "<<p.pos.y<<" "<<"target "<<p.target.x<<" "<<p.target.y<<" ";
+			}
+			//std::cout<<std::endl;
 		}
 		else if (mouse_at.x == mouse_at.x) {
 			glm::vec2 at;
@@ -191,7 +242,7 @@ void PlayMode::update(float elapsed) {
 				probes.assign(2, Probe());
 				probes[0].pos = at - 0.5f * gap;
 				probes[1].pos = at + 0.5f * gap;
-				std::cout<<" here";
+				std::cout<<" here 4 "<<std::endl;
 			}
 			probes[0].target = at - 0.5f * gap;
 			probes[1].target = at + 0.5f * gap;
@@ -390,7 +441,7 @@ void PlayMode::tick_clay() {
 		}
 		p.pos = p.target;
 	}
-
+	//std::cout<<probes.size()<<" ";
 	const float wall_bounce = 0.5f;
 	const float viscosity_radius = 2.0f * particle_radius;
 
