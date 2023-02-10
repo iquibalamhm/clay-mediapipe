@@ -68,21 +68,25 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		num_hands  = (*coordinates)[0];
 		int x1,x2,x3,x4,y1,y2,y3,y4;
 		if (num_hands == 1){
-			x1 = (*coordinates)[1];
-			y1 = (*coordinates)[2];
-			x2 = (*coordinates)[3];
-			y2 = (*coordinates)[4];
+			hand_1_closed = (*coordinates)[1];
+			x1 = (*coordinates)[2];
+			y1 = (*coordinates)[3];
+			x2 = (*coordinates)[4];
+			y2 = (*coordinates)[5];
 			
 		}
 		else{
-			x1 = (*coordinates)[1];
-			y1 = (*coordinates)[2];
-			x2 = (*coordinates)[3];
-			y2 = (*coordinates)[4];
-			x3 = (*coordinates)[5];
-			y3 = (*coordinates)[6];
-			x4 = (*coordinates)[7];
-			y4 = (*coordinates)[8];
+			hand_1_closed = (*coordinates)[1];
+			x1 = (*coordinates)[2];
+			y1 = (*coordinates)[3];
+			x2 = (*coordinates)[4];
+			y2 = (*coordinates)[5];
+
+			hand_2_closed = (*coordinates)[6];
+			x3 = (*coordinates)[7];
+			y3 = (*coordinates)[8];
+			x4 = (*coordinates)[9];
+			y4 = (*coordinates)[10];
 
 			index_2_at.x =-1.0f + 2.0f * (x3 + 0.5f) / float(window_size.x);
 			index_2_at.y = 1.0f - 2.0f * (y3 + 0.5f) / float(window_size.y);
@@ -182,10 +186,7 @@ void PlayMode::update(float elapsed) {
 			//The number 10.f is the min gap that can happen between the probes
 			glm::vec2 gap = glm::mix(1.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
 
-			// std::cout<<"at.x: "<<at_1.x<<" "<<at_1.y<<std::endl;
-			//probes[0].target = at_1;
-			//probes[1].target = at_2;
-			if (num_hands ==1){
+			if (num_hands ==1 && hand_1_closed==0){
 				if (probes.size() != 2) {
 					probes.assign(2, Probe());
 					probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
@@ -200,28 +201,50 @@ void PlayMode::update(float elapsed) {
 				at_4.y = (index_2_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
 				at_3.x = (thumb_2_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
 				at_3.y = (thumb_2_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
-				//The number 10.f is the min gap that can happen between the probes
-				//glm::vec2 gap = glm::mix(1.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
-				// std::cout << "At: (" << at_1.x << ", " << at_1.y << " " <<at_2.x << ", " << at_2.y << ")"<<
-				// 			 "(" << at_3.x << ", " << at_3.y << " " <<at_4.x << ", " << at_4.y << ")"<<std::endl;
-
 				//std::cout<<"at.x: "<<at_3.x<<" "<<at_3.y<<std::endl;
 				//probes[0].target = at_1;
 				//probes[1].target = at_2;
-				if (probes.size() != 4) {
-					probes.assign(4, Probe());
-					probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
-					probes[1].pos = at_2 + 0.5f * gap;
-					probes[2].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
-					probes[3].pos = at_4 + 0.5f * gap;
-					std::cout<<" here 2 "<<std::endl;
+				if (hand_1_closed == true && hand_2_closed == false){
+					if (probes.size() != 2) {
+						probes.assign(2, Probe());
+						probes[0].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
+						probes[1].pos = at_4 + 0.5f * gap;
+						std::cout<<" here 2 "<<std::endl;
+					}
+
+					probes[0].target = at_3 - 0.5f * gap;
+					probes[1].target = at_4 + 0.5f * gap;
 				}
+				else if (hand_1_closed == false && hand_2_closed == true){
+					if (probes.size() != 2) {
+						probes.assign(2, Probe());
+						probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
+						probes[1].pos = at_2 + 0.5f * gap;
+						std::cout<<" here 2 "<<std::endl;
+					}
 
-				probes[0].target = at_1 - 0.5f * gap;
-				probes[1].target = at_2 + 0.5f * gap;
+					probes[0].target = at_1 - 0.5f * gap;
+					probes[1].target = at_2 + 0.5f * gap;
+				}
+				else if (hand_1_closed == true && hand_2_closed == true){
+					continue;
+				}
+				else {
+					if (probes.size() != 4) {
+						probes.assign(4, Probe());
+						probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
+						probes[1].pos = at_2 + 0.5f * gap;
+						probes[2].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
+						probes[3].pos = at_4 + 0.5f * gap;
+						std::cout<<" here 2 "<<std::endl;
+					}
 
-				probes[2].target = at_3 - 0.5f * gap;
-				probes[3].target = at_4 + 0.5f * gap;
+					probes[0].target = at_1 - 0.5f * gap;
+					probes[1].target = at_2 + 0.5f * gap;
+
+					probes[2].target = at_3 - 0.5f * gap;
+					probes[3].target = at_4 + 0.5f * gap;
+				}
 			}
 
 			for (auto const &p : probes) {
@@ -424,7 +447,8 @@ void PlayMode::tick_clay() {
 	//step as per velocity:
 	for (auto &p : particles) {
 		old_pos.emplace_back(p.pos);
-		p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping
+		//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+		p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
 		//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
 		p.pos += p.vel * ClayTick;
 	}
@@ -440,9 +464,10 @@ void PlayMode::tick_clay() {
 		}
 		p.pos = p.target;
 	}
-	//std::cout<<probes.size()<<" ";
-	const float wall_bounce = 0.5f;
-	const float viscosity_radius = 2.0f * particle_radius;
+	// const float wall_bounce = 0.5f; prev version
+	const float wall_bounce = 0.1f;
+	// const float viscosity_radius = 2.0f * particle_radius;
+	const float viscosity_radius = 4.0f * particle_radius;
 
 	//particles vs world:
 	for (auto &p : particles) {

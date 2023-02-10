@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
 				// event.user.data1 = &coordinates;
 				int num_hands = (*myvector)[0];
 				if (num_hands==1){
-					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4]});
+					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5]});
 					event.user.data1 = coordinates;
 					// for (int i = 1; i < 5; i++) {
 					// 	std::cout << (*coordinates)[i] << " ";
@@ -202,8 +202,8 @@ int main(int argc, char **argv) {
 					// std::cout << "  <- coordinates"<<std::endl;
 				}
 				else{
-					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],
-														(*myvector)[5],(*myvector)[6],(*myvector)[7],(*myvector)[8]});
+					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],
+										(*myvector)[6],(*myvector)[7],(*myvector)[8],(*myvector)[9],(*myvector)[10]});
 					event.user.data1 = coordinates;
 					// for (int i = 1; i < 9; i++) {
 					// 	std::cout << (*coordinates)[i] << " ";

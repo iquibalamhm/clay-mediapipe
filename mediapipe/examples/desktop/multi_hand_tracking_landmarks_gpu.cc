@@ -51,6 +51,8 @@
 #include <stdio.h>
 
 
+# define NUM_LANDMARKS 21
+
 constexpr char kInputStream[] = "input_video";
 //constexpr char kWindowName[] = "MediaPipe";
 constexpr char kOutputLandmarks[] = "hand_landmarks";
@@ -66,6 +68,37 @@ ABSL_FLAG(std::string, output_video_path, "",
 
 clock_t current_ticks, delta_ticks;
 clock_t fps = 0;
+
+bool isHandClosed(const std::vector<float>& landmarks, int start_index,int num_hands){
+  if (landmarks.size() != NUM_LANDMARKS * 2 * num_hands) {
+    std::cerr << "Invalid number of landmarks. Expected " << NUM_LANDMARKS * 2 *num_hands
+              << " but got " << landmarks.size() << std::endl;
+    return false;
+  }
+
+  // Here you can use the 21 landmarks to calculate the distance between thumb and other fingers
+  // based on the position of the landmarks, and determine if the hand is closed or not.
+  // ...
+
+  // For example, a simple heuristic to detect if a hand is closed is to check if the distance
+  // between the thumb and the pinky finger is small enough, which would indicate that the hand
+  // is closed.
+
+  // Calculate the distance between the thumb and pinky finger.
+  float thumb_x = landmarks[start_index+8];
+  float thumb_y = landmarks[start_index + 9];
+  float pinky_x = landmarks[start_index + 40];
+  float pinky_y = landmarks[start_index + 41];
+  float distance = std::sqrt((thumb_x - pinky_x) * (thumb_x - pinky_x) +
+                             (thumb_y - pinky_y) * (thumb_y - pinky_y));
+
+  // If the distance is less than a certain threshold, the hand is considered closed.
+  if (distance < 60.0) {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 absl::Status RunMPPGraph() {
   struct shm_remove
@@ -213,15 +246,28 @@ absl::Status RunMPPGraph() {
             hand_landmarks.push_back(y);
           }
         }
+        bool hand_1_closed = false;
+        bool hand_2_closed = false;
+        if (hand_landmarks.size()==42){
+          //printf("hand 1 is closed.\n");
+          hand_1_closed = isHandClosed(hand_landmarks,0,1);  
+          std::cout<<"hand 1 closed: "<<hand_1_closed<<std::endl;
+        }
+        else if(hand_landmarks.size()==84){
+          //printf("hand 2 is closed.\n");
+          hand_1_closed = isHandClosed(hand_landmarks,0,2);
+          hand_2_closed = isHandClosed(hand_landmarks, 42,2);
+          std::cout<<"hand 1 closed: "<<hand_1_closed<<"hand 2 closed: "<<hand_2_closed<<std::endl;
+        }
         //printf("hand points size = %d.\n", hand_landmarks.size());
         // Lock the mutex
         std::unique_lock<Mutex> lock(*mutex);
-
         // Write the data to shared memory
         myvector->clear();
         //for (int i = 0; i < 2; i++) {
         if (hand_landmarks.size()==42){
           myvector->push_back(1); //num_hands
+          myvector->push_back(int(hand_1_closed)); //hand 1 closed
           myvector->push_back(hand_landmarks[16]); //pointing finger
           myvector->push_back(hand_landmarks[17]);
           myvector->push_back(hand_landmarks[8]); //thumb finger
@@ -230,12 +276,14 @@ absl::Status RunMPPGraph() {
         else if(hand_landmarks.size()==84){
           myvector->push_back(2); //num_hands
           //HAND 1
+          myvector->push_back(int(hand_1_closed)); //hand 1 closed
           myvector->push_back(hand_landmarks[16]); //pointing finger
           myvector->push_back(hand_landmarks[17]);
           myvector->push_back(hand_landmarks[8]); //thumb finger
           myvector->push_back(hand_landmarks[9]);
           
           //HAND 2
+          myvector->push_back(int(hand_2_closed)); //hand 2 closed
           myvector->push_back(hand_landmarks[58]); //pointing finger
           myvector->push_back(hand_landmarks[59]);
           myvector->push_back(hand_landmarks[50]); //thumb finger

@@ -34,7 +34,6 @@ struct PlayMode : Mode {
 	glm::mat4 world_to_clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f);
 
 	float time_acc = 0.0f;
-	int num_hands = 1;
 	struct Particle {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
 		glm::vec2 vel = glm::vec2(0.0f, 0.0f);
@@ -62,6 +61,10 @@ struct PlayMode : Mode {
 	bool do_rotation_left = false;
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
+
+	int num_hands = 1;
+	bool hand_1_closed = true;
+	bool hand_2_closed = true;
 
 	//float particle_radius = 0.01f;
 	float particle_radius = 0.007f;
