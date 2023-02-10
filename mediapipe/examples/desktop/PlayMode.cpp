@@ -191,7 +191,6 @@ void PlayMode::update(float elapsed) {
 					probes.assign(2, Probe());
 					probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
 					probes[1].pos = at_2 + 0.5f * gap;
-					std::cout<<" here 1";
 				}
 				probes[0].target = at_1 - 0.5f * gap;
 				probes[1].target = at_2 + 0.5f * gap;
@@ -209,7 +208,6 @@ void PlayMode::update(float elapsed) {
 						probes.assign(2, Probe());
 						probes[0].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
 						probes[1].pos = at_4 + 0.5f * gap;
-						std::cout<<" here 2 "<<std::endl;
 					}
 
 					probes[0].target = at_3 - 0.5f * gap;
@@ -220,7 +218,6 @@ void PlayMode::update(float elapsed) {
 						probes.assign(2, Probe());
 						probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
 						probes[1].pos = at_2 + 0.5f * gap;
-						std::cout<<" here 2 "<<std::endl;
 					}
 
 					probes[0].target = at_1 - 0.5f * gap;
@@ -236,7 +233,6 @@ void PlayMode::update(float elapsed) {
 						probes[1].pos = at_2 + 0.5f * gap;
 						probes[2].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
 						probes[3].pos = at_4 + 0.5f * gap;
-						std::cout<<" here 2 "<<std::endl;
 					}
 
 					probes[0].target = at_1 - 0.5f * gap;
@@ -247,11 +243,6 @@ void PlayMode::update(float elapsed) {
 				}
 			}
 
-			for (auto const &p : probes) {
-				continue;
-				std::cout<<"pos : "<<p.pos.x<<" "<<p.pos.y<<" "<<"target "<<p.target.x<<" "<<p.target.y<<" ";
-			}
-			//std::cout<<std::endl;
 		}
 		else if (mouse_at.x == mouse_at.x) {
 			glm::vec2 at;
@@ -265,7 +256,6 @@ void PlayMode::update(float elapsed) {
 				probes.assign(2, Probe());
 				probes[0].pos = at - 0.5f * gap;
 				probes[1].pos = at + 0.5f * gap;
-				std::cout<<" here 4 "<<std::endl;
 			}
 			probes[0].target = at - 0.5f * gap;
 			probes[1].target = at + 0.5f * gap;

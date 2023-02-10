@@ -190,30 +190,31 @@ int main(int argc, char **argv) {
 
 				SDL_Event event;
 				event.type = SDL_USEREVENT;
+				std::vector<int>* coordinates = nullptr;
+
 				// std::vector<int> coordinates = {(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3]};
 				// event.user.data1 = &coordinates;
 				int num_hands = (*myvector)[0];
 				if (num_hands==1){
-					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5]});
+					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5]});
 					event.user.data1 = coordinates;
-					// for (int i = 1; i < 5; i++) {
-					// 	std::cout << (*coordinates)[i] << " ";
-					// }
-					// std::cout << "  <- coordinates"<<std::endl;
+					SDL_PushEvent(&event);
 				}
-				else{
-					std::vector<int>* coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],
+				else if (num_hands==2){
+					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],
 										(*myvector)[6],(*myvector)[7],(*myvector)[8],(*myvector)[9],(*myvector)[10]});
 					event.user.data1 = coordinates;
-					// for (int i = 1; i < 9; i++) {
-					// 	std::cout << (*coordinates)[i] << " ";
-					// }
-					// std::cout << "  <- coordinates"<<std::endl;
-				}
-
-				SDL_PushEvent(&event);
-				myvector->clear();			
-				
+					if ((*myvector)[1] && (*myvector)[6]){
+						SDL_Event event_reset;
+						event_reset.type = SDL_KEYDOWN;
+						event_reset.key.keysym.sym = SDLK_BACKSPACE;
+						SDL_PushEvent(&event_reset);
+					}
+					else{
+						SDL_PushEvent(&event);	
+					}
+				}				
+				myvector->clear();
 			}			
 
 		}
