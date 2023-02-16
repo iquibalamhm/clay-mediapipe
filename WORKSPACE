@@ -543,3 +543,25 @@ external_files()
 
 load("//third_party:wasm_files.bzl", "wasm_files")
 wasm_files()
+
+# # Declare a Bazel repository for the Zed SDK.
+# new_local_repository(
+#     name = "zed",
+#     path = "/usr/local/zed",
+#     build_file = "@//third_party:zed.bzl",
+# )
+
+# # Load the Zed SDK repository.
+# load("//third_party:zed.bzl", "zed-core", "zed-cuda")
+new_local_repository(
+  name = "usr_local_zed",
+  path = "/usr/local/zed",
+  build_file = "//third_party:usr_local_zed.BUILD",
+)
+
+# WORKSPACE
+new_local_repository(
+  name = "usr_local_cuda",
+  path = "/usr/local/cuda",
+  build_file = "//third_party:usr_local_cuda.BUILD",
+)

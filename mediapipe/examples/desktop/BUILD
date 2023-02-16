@@ -137,6 +137,17 @@ cc_library(
         "//nest-libs:glm"
     ],
 )
+cc_library(
+    name = "GLViewer",
+    srcs = ["GLViewer.cpp"],
+    hdrs = ["GLViewer.hpp"],
+    deps = [
+    "@usr_local_zed//:zed",
+    "@usr_local_cuda//:my_cuda_library",
+    ],
+)
+
+
 
 cc_library(
     name = "main",
@@ -205,5 +216,21 @@ cc_library(
     srcs = ["sharing_memory_vector.cpp"],
     hdrs = [
         "doc_anonymous_semaphore_shared_data.hpp"
+    ],
+)
+
+cc_library(
+    name = "zed_lib",
+    srcs = ["GLViewer.cpp"],
+    hdrs = ["GLViewer.hpp"],
+)
+
+cc_library(
+    name = "zed_depth",
+    srcs = ["main_zed.cpp"],
+    deps = [
+        ":GLViewer",
+        "@usr_local_zed//:zed",
+        "@usr_local_cuda//:my_cuda_library",
     ],
 )

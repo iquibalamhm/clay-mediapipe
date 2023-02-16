@@ -133,3 +133,11 @@ cc_binary(
         "//mediapipe/examples/desktop:share_memory_vector",
     ],
 )
+
+# ZED camera depth sensing
+cc_binary(
+    name = "zed_depth_sensing",
+    deps = [
+        "//mediapipe/examples/desktop:zed_depth",
+    ],
+)
