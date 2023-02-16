@@ -94,7 +94,8 @@ int main(int argc, char **argv) {
 		"clay-game", //TODO: remember to set a title for your game!
 		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		//1280, 720, //TODO: modify window size if you'd like
-		640, 420,
+		//640, 420,
+		1280,960, //640x480 x2
 		SDL_WINDOW_OPENGL
 		| SDL_WINDOW_RESIZABLE //uncomment to allow resizing
 		| SDL_WINDOW_ALLOW_HIGHDPI //uncomment for full resolution on high-DPI screens
@@ -171,29 +172,12 @@ int main(int argc, char **argv) {
             	//continue;
         	}
 			else{
-
-				// Read the data from shared memory
-				//std::cout << "Process 2: Reading data from shared memory..." << std::endl;
-				// for (int i = 0; i < 4; i++) {
-				// 	std::cout << (*myvector)[i] << " ";
-				// }
-				// std::cout << std::endl;
-				// Clear the vector
-				// SDL_Event event;
-				// event.type = SDL_MOUSEMOTION;
-				// event.motion.x = (*myvector)[0];
-				// event.motion.y =  (*myvector)[1];
-				//event.key.keysym.sym = SDLK_BACKSPACE;
-				// Notify process 1 that the data has been read
 				condvar->notify_one();
 				double diff_y = abs((*myvector)[1]-(*myvector)[3]);
 
 				SDL_Event event;
 				event.type = SDL_USEREVENT;
 				std::vector<int>* coordinates = nullptr;
-
-				// std::vector<int> coordinates = {(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3]};
-				// event.user.data1 = &coordinates;
 				int num_hands = (*myvector)[0];
 				if (num_hands==1){
 					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5]});
@@ -258,7 +242,6 @@ int main(int argc, char **argv) {
 			//if frames are taking a very long time to process,
 			//lag to avoid spiral of death:
 			elapsed = std::min(0.1f, elapsed);
-
 			Mode::current->update(elapsed);
 			if (!Mode::current) break;
 		}

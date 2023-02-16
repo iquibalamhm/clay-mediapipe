@@ -31,7 +31,10 @@ struct PlayMode : Mode {
 	
 	bool do_pinch = false;
 	//stored on each draw, used on each update:
-	glm::mat4 world_to_clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f);
+	glm::mat4 world_to_clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,  
+										0.0f, 1.0f, 0.0f, 0.0f,  
+										0.0f, 0.0f, 1.0f, 0.0f,  
+										0.0f, 0.0f, 0.0f, 1.0f);
 
 	float time_acc = 0.0f;
 	struct Particle {

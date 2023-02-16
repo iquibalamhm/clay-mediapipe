@@ -52,7 +52,8 @@
 
 
 # define NUM_LANDMARKS 21
-
+# define SCALE 2
+# define THRESHOLD 48*SCALE
 constexpr char kInputStream[] = "input_video";
 //constexpr char kWindowName[] = "MediaPipe";
 constexpr char kOutputLandmarks[] = "hand_landmarks";
@@ -93,7 +94,7 @@ bool isHandClosed(const std::vector<float>& landmarks, int start_index,int num_h
                              (thumb_y - pinky_y) * (thumb_y - pinky_y));
 
   // If the distance is less than a certain threshold, the hand is considered closed.
-  if (distance < 60.0) {
+  if (distance < THRESHOLD) {
     return true;
   } else {
     return false;
@@ -237,8 +238,9 @@ absl::Status RunMPPGraph() {
           mediapipe::NormalizedLandmarkList single_hand_NormalizedLandmarkList = output_landmarks[m];
           for (int i = 0; i < single_hand_NormalizedLandmarkList.landmark_size(); ++i){
             const mediapipe::NormalizedLandmark landmark = single_hand_NormalizedLandmarkList.landmark(i);
-            int x = landmark.x() * camera_frame.cols;
-            int y = landmark.y() * camera_frame.rows;
+            
+            int x = landmark.x() * camera_frame.cols * SCALE;
+            int y = landmark.y() * camera_frame.rows * SCALE;
             //int x = landmark.x();
             //int y = landmark.y();
 

@@ -73,7 +73,6 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			y1 = (*coordinates)[3];
 			x2 = (*coordinates)[4];
 			y2 = (*coordinates)[5];
-			
 		}
 		else{
 			hand_1_closed = (*coordinates)[1];
@@ -285,10 +284,13 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	glDisable(GL_DEPTH_TEST);
 
 	const float aspect = drawable_size.x / float(drawable_size.y);
-
-	const float scale = std::min(2.0f * aspect / (box_max.x - box_min.x + 0.1f), 2.0f / (box_max.y - box_min.y + 0.1f));
+	//std::cout<< drawable_size.x<<" "<<float(drawable_size.y)<<std::endl;
+	const float scale = std::min(1.5f * aspect / (box_max.x - box_min.x + 0.1f), 1.5f / (box_max.y - box_min.y + 0.1f));
+	std::cout<< aspect<<" "<<scale<<std::endl;
+	//const glm::vec2 offset = -0.5f * (box_min + box_max);
 	const glm::vec2 offset = -0.5f * (box_min + box_max);
-
+	
+	std::cout<<box_min.x<<" "<<box_min.y<<" "<<box_max.x<<" "<<box_max.y<<" "<<offset.x<<" "<<offset.y<<" "<<std::endl;
 	world_to_clip = glm::mat4(
 		scale / aspect, 0.0f, 0.0f, 0.0f,
 		0.0f, scale, 0.0f, 0.0f,
@@ -308,14 +310,6 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		//axis:
 		lines.draw(glm::vec3((axis_max.x-axis_min.x)/2 + axis_min.x, axis_min.y, 0.0f), glm::vec3((axis_max.x-axis_min.x)/2 + axis_min.x, axis_max.y, 0.0f), glm::u8vec4(0x08, 0x44, 0x44, 0xff));
 		lines.draw(glm::vec3(axis_min.x, (axis_max.y-axis_min.y)/2 + axis_min.y, 0.0f), glm::vec3(axis_max.x, (axis_max.y-axis_min.y)/2 + axis_min.y, 0.0f), glm::u8vec4(0x08, 0x44, 0x44, 0xff));
-
-		//lines.draw_text("hola ",glm::vec3(0.01f, 0.01f, 0.0f),glm::vec3(axis_min.x, axis_max.x, 0.0f), glm::vec3(axis_min.y, axis_max.y, 0.0f),glm::u8vec4(0x08, 0x44, 0x44, 0xff));
-		// constexpr float H = 0.5f;
-
-		// lines.draw_text("Mouse",
-		// 	glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
-		// 	glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-		// 	glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 
 		//from 15-466-f22-base6:
 		static std::array< glm::vec2, 16 > const circle = [](){
