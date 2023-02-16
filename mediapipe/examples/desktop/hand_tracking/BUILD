@@ -137,7 +137,12 @@ cc_binary(
 # ZED camera depth sensing
 cc_binary(
     name = "zed_depth_sensing",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
     deps = [
         "//mediapipe/examples/desktop:zed_depth",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )
