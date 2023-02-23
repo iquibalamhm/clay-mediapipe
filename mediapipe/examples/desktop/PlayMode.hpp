@@ -56,6 +56,7 @@ struct PlayMode : Mode {
 	struct Probe {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
 		glm::vec2 target = glm::vec2(0.0f, 0.0f);
+		bool active = true;
 	};
 
 	std::vector< Probe > probes;
@@ -65,9 +66,23 @@ struct PlayMode : Mode {
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
 
+	bool rigid = false;
 	int num_hands = 1;
-	bool hand_1_closed = true;
-	bool hand_2_closed = true;
+	bool hand_1_closed = false;
+	bool hand_2_closed = false;
+	bool hand_1_active = false;
+	bool hand_2_active = false;
+
+
+    // Calculate the center of mass and moment of inertia
+    double cx = 0.0;
+    double cy = 0.0;
+    double cz = 0.0;
+    double m = 0.0;
+    double Ixx = 0.0;
+    double Iyy = 0.0;
+    double Izz = 0.0;
+	double I = 0.0;
 
 	//float particle_radius = 0.01f;
 	float particle_radius = 0.007f;

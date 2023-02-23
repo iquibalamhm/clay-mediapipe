@@ -36,8 +36,8 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		} else if(evt.key.keysym.sym == SDLK_LEFT){
 			do_rotation_left = true;
 		}
-		else if(evt.key.keysym.sym == SDLK_RIGHT){
-			do_rotation_right = true;
+		else if(evt.key.keysym.sym == SDLK_r){
+			rigid = !rigid;
 		}
 	} else if (evt.type == SDL_KEYUP) {
 		if(evt.key.keysym.sym == SDLK_LEFT){
@@ -69,23 +69,27 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		int x1,x2,x3,x4,y1,y2,y3,y4;
 		if (num_hands == 1){
 			hand_1_closed = (*coordinates)[1];
-			x1 = (*coordinates)[2];
-			y1 = (*coordinates)[3];
-			x2 = (*coordinates)[4];
-			y2 = (*coordinates)[5];
+			hand_1_active = (*coordinates)[2];
+			std::cout<<"closed: "<<hand_1_closed<<"  active:"<<hand_1_active<<std::endl;
+			x1 = (*coordinates)[3];
+			y1 = (*coordinates)[4];
+			x2 = (*coordinates)[5];
+			y2 = (*coordinates)[6];
 		}
 		else{
 			hand_1_closed = (*coordinates)[1];
-			x1 = (*coordinates)[2];
-			y1 = (*coordinates)[3];
-			x2 = (*coordinates)[4];
-			y2 = (*coordinates)[5];
+			hand_1_active = (*coordinates)[2];
+			x1 = (*coordinates)[3];
+			y1 = (*coordinates)[4];
+			x2 = (*coordinates)[5];
+			y2 = (*coordinates)[6];
 
-			hand_2_closed = (*coordinates)[6];
-			x3 = (*coordinates)[7];
-			y3 = (*coordinates)[8];
-			x4 = (*coordinates)[9];
-			y4 = (*coordinates)[10];
+			hand_2_closed = (*coordinates)[7];
+			hand_2_active = (*coordinates)[8];
+			x3 = (*coordinates)[9];
+			y3 = (*coordinates)[10];
+			x4 = (*coordinates)[11];
+			y4 = (*coordinates)[12];
 
 			index_2_at.x =-1.0f + 2.0f * (x3 + 0.5f) / float(window_size.x);
 			index_2_at.y = 1.0f - 2.0f * (y3 + 0.5f) / float(window_size.y);
@@ -185,7 +189,7 @@ void PlayMode::update(float elapsed) {
 			//The number 10.f is the min gap that can happen between the probes
 			glm::vec2 gap = glm::mix(1.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
 
-			if (num_hands ==1 && hand_1_closed==0){
+			if (num_hands ==1 && (hand_1_closed==0)){
 				if (probes.size() != 2) {
 					probes.assign(2, Probe());
 					probes[0].pos = at_1 - 0.5f * gap; //I'm not sure what the 0.5f does
@@ -193,6 +197,14 @@ void PlayMode::update(float elapsed) {
 				}
 				probes[0].target = at_1 - 0.5f * gap;
 				probes[1].target = at_2 + 0.5f * gap;
+				if (hand_1_active==0){
+					probes[0].active = 0;
+					probes[1].active = 0;
+				}
+				else{
+					probes[0].active = 1;
+					probes[1].active = 1;
+				}
 			} else if (num_hands == 2){
 				glm::vec2 at_3, at_4;
 				at_4.x = (index_2_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
@@ -211,6 +223,14 @@ void PlayMode::update(float elapsed) {
 
 					probes[0].target = at_3 - 0.5f * gap;
 					probes[1].target = at_4 + 0.5f * gap;
+					if (hand_2_active==0){
+						probes[0].active = 0;
+						probes[1].active = 0;
+					}
+					else{
+						probes[0].active = 1;
+						probes[1].active = 1;
+					}
 				}
 				else if (hand_1_closed == false && hand_2_closed == true){
 					if (probes.size() != 2) {
@@ -221,6 +241,14 @@ void PlayMode::update(float elapsed) {
 
 					probes[0].target = at_1 - 0.5f * gap;
 					probes[1].target = at_2 + 0.5f * gap;
+					if (hand_1_active==0){
+						probes[0].active = 0;
+						probes[1].active = 0;
+					}
+					else{
+						probes[0].active = 1;
+						probes[1].active = 1;
+					}
 				}
 				else if (hand_1_closed == true && hand_2_closed == true){
 					continue;
@@ -233,12 +261,16 @@ void PlayMode::update(float elapsed) {
 						probes[2].pos = at_3 - 0.5f * gap; //I'm not sure what the 0.5f does
 						probes[3].pos = at_4 + 0.5f * gap;
 					}
-
 					probes[0].target = at_1 - 0.5f * gap;
 					probes[1].target = at_2 + 0.5f * gap;
-
 					probes[2].target = at_3 - 0.5f * gap;
 					probes[3].target = at_4 + 0.5f * gap;
+					
+					probes[0].active = hand_1_active;
+					probes[1].active = hand_1_active;
+					probes[2].active = hand_2_active;
+					probes[3].active = hand_2_active;
+
 				}
 			}
 
@@ -286,11 +318,11 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	const float aspect = drawable_size.x / float(drawable_size.y);
 	//std::cout<< drawable_size.x<<" "<<float(drawable_size.y)<<std::endl;
 	const float scale = std::min(1.5f * aspect / (box_max.x - box_min.x + 0.1f), 1.5f / (box_max.y - box_min.y + 0.1f));
-	std::cout<< aspect<<" "<<scale<<std::endl;
+	//std::cout<< aspect<<" "<<scale<<std::endl;
 	//const glm::vec2 offset = -0.5f * (box_min + box_max);
 	const glm::vec2 offset = -0.5f * (box_min + box_max);
 	
-	std::cout<<box_min.x<<" "<<box_min.y<<" "<<box_max.x<<" "<<box_max.y<<" "<<offset.x<<" "<<offset.y<<" "<<std::endl;
+	//std::cout<<box_min.x<<" "<<box_min.y<<" "<<box_max.x<<" "<<box_max.y<<" "<<offset.x<<" "<<offset.y<<" "<<std::endl;
 	world_to_clip = glm::mat4(
 		scale / aspect, 0.0f, 0.0f, 0.0f,
 		0.0f, scale, 0.0f, 0.0f,
@@ -391,14 +423,19 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*coeff[2]+ (axis_min.x+a*step)*coeff[1] + coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*coeff[2] + (axis_min.x+(a+1)*step)*coeff[1]+coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
 			}
 		}
-		//std::cout<<avg_x<<" "<<avg_y<<std::endl;
+
 		//probes:
 		for (auto const &p : probes) {
-			draw_circle(p.target, probe_radius, glm::u8vec4(0x88, 0x88, 0x88, 0xff));
-			draw_circle(p.pos, probe_radius, glm::u8vec4(0x88, 0x88, 0x00, 0xff));
+			if (p.active==1) {
+				// draw_circle(p.pos, probe_radius, glm::u8vec4(0x88, 0x88, 0x00, 0xff));
+				draw_circle(p.target, probe_radius, glm::u8vec4(0x88, 0x88, 0x88, 0xff));
+				draw_circle(p.pos, probe_radius, glm::u8vec4(0x88, 0x88, 0x00, 0xff));
+			} else {
+				draw_circle(p.target, probe_radius, glm::u8vec4(0xff, 0x88, 0x88, 0xff));
+				draw_circle(p.pos, probe_radius, glm::u8vec4(0xff, 0x88, 0x00, 0xff));
+			}
 		}
-
-
+		
 	}
 	GL_ERRORS();
 }
@@ -423,117 +460,304 @@ void PlayMode::reset_clay() {
 
 	probe_rot = 0.0f; //Set the rotation back to zero:
 }
-
 void PlayMode::tick_clay() {
-	std::vector< glm::vec2 > old_pos;
-	old_pos.reserve(particles.size());
-
-	//step as per velocity:
-	for (auto &p : particles) {
-		old_pos.emplace_back(p.pos);
-		//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
-		p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
-		//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
-		p.pos += p.vel * ClayTick;
-	}
-
-	//probe targets:
-	for (auto &p : probes) {
-		float len = glm::length(p.target - p.pos);
-		float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
-		if (new_len <= 0.0f) {
+	if (rigid==true){
+		//rigid body: simulation
+    	// Calculate the center of mass and moment of inertia of the particles
+    	cx = 0.0;
+    	cy = 0.0;
+    	I = 0.0;		
+		for (auto &p : particles) {
+            cx += p.pos.x;
+            cy += p.pos.y;
+            //m += particles[i].mass;
+            Ixx += (p.pos.y * p.pos.y);
+            Iyy += (p.pos.x * p.pos.x);
+        }
+		cx /= particles.size();
+		cy /= particles.size();
+		for (auto &p : particles) {
+			double x = p.pos.x - cx;
+			double y = p.pos.y - cy;
+			I += (x * x + y * y);
+    	}
+		double Iinv = 1.0 / I;
+		double Ixx = Iinv * (cy * cy);
+		double Iyy = Iinv * (cx * cx);
+		double Izz = Ixx + Iyy;
+		//step as per velocity:
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+		for (auto &p : particles) {
+			old_pos.emplace_back(p.pos);
+			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+			p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
+			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			p.pos += p.vel * ClayTick;
+		}
+		//probe targets:
+		for (auto &p : probes) {
+			float len = glm::length(p.target - p.pos);
+			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+			if (new_len <= 0.0f) {
+				p.pos = p.target;
+			} else {
+				p.pos += (p.target - p.pos) * (new_len / len);
+			}
 			p.pos = p.target;
-		} else {
-			p.pos += (p.target - p.pos) * (new_len / len);
 		}
-		p.pos = p.target;
-	}
-	// const float wall_bounce = 0.5f; prev version
-	const float wall_bounce = 0.1f;
-	// const float viscosity_radius = 2.0f * particle_radius;
-	const float viscosity_radius = 4.0f * particle_radius;
-
-	//particles vs world:
-	for (auto &p : particles) {
-		if (p.pos.x < box_min.x) {
-			p.pos.x = box_min.x;
-			if (p.vel.x < 0.0f) {
-				p.vel.x = wall_bounce * std::abs(p.vel.x);
-				old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
-			}
-		}
-		if (p.pos.x > box_max.x) {
-			p.pos.x = box_max.x;
-			if (p.vel.x > 0.0f) {
-				p.vel.x = wall_bounce * -std::abs(p.vel.x);
-				old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
-			}
-		}
-		if (p.pos.y < box_min.y) {
-			p.pos.y = box_min.y;
-			if (p.vel.y < 0.0f) {
-				p.vel.y = wall_bounce * std::abs(p.vel.y);
-				old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
-			}
-		}
-		if (p.pos.y > box_max.y) {
-			p.pos.y = box_max.y;
-			if (p.vel.y > 0.0f) {
-				p.vel.y = wall_bounce * -std::abs(p.vel.y);
-				old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
-			}
-		}
-	}
-
-	//particles vs particles (the slow way):
-	float alpha = 0.9f; //controls particle squish
-	for (auto &p : particles) {
-		for (auto &p2 : particles) {
-			if (&p == &p2) break;
-			glm::vec2 to = p2.pos - p.pos;
-			float len2 = glm::length2(to);
-			if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
-				glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
-				p.pos -= alpha * 0.5f * step;
-				p2.pos += alpha * 0.5f * step;
-			}
-		}
+				//particles vs particles (the slow way):
+		float alpha = 0.9f; //controls particle squish
 		for (auto &p2 : probes) {
-			glm::vec2 to = p2.pos - p.pos;
-			float len2 = glm::length2(to);
-			const float near = particle_radius + probe_radius;
-			const float near2 = near * near;
-			if (len2 > 0.0f && len2 < near2) {
-				glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
-				p.pos -= 0.5f * step;
-				p2.pos += 0.5f * step;
+			bool flag_moved = false;
+			glm::vec2 step;
+			for (auto &p : particles) {
+			// bool touching = false;
+				//if (p2.active == false) continue;
+					glm::vec2 to = p2.pos - p.pos;
+					float len2 = glm::length2(to);
+					const float near = particle_radius + probe_radius;
+					const float near2 = near * near;
+					if (len2 > 0.0f && len2 < near2) {
+						step = to * (near / std::sqrt(len2) - 1.0f);
+						//p.pos -= 0.5f * step;
+						p2.pos += 0.5f * step;
+						flag_moved = true;
+						break;
+					}
+		
+				//std::cout<<"touching "<<touching<<std::endl;
+			}
+			if (flag_moved = true){
+				for (auto &p : particles) {
+					p.pos -= 0.5f * step;
+				}
+			}
+			flag_moved = false;
+		}
+	}
+	else{
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+
+		//step as per velocity:
+		for (auto &p : particles) {
+			old_pos.emplace_back(p.pos);
+			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+			p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
+			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			p.pos += p.vel * ClayTick;
+		}
+
+		//probe targets:
+		for (auto &p : probes) {
+			float len = glm::length(p.target - p.pos);
+			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+			if (new_len <= 0.0f) {
+				p.pos = p.target;
+			} else {
+				p.pos += (p.target - p.pos) * (new_len / len);
+			}
+			p.pos = p.target;
+		}
+		// const float wall_bounce = 0.5f; prev version
+		const float wall_bounce = 0.1f;
+		// const float viscosity_radius = 2.0f * particle_radius;
+		const float viscosity_radius = 4.0f * particle_radius;
+
+		//particles vs world:
+		for (auto &p : particles) {
+			if (p.pos.x < box_min.x) {
+				p.pos.x = box_min.x;
+				if (p.vel.x < 0.0f) {
+					p.vel.x = wall_bounce * std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.x > box_max.x) {
+				p.pos.x = box_max.x;
+				if (p.vel.x > 0.0f) {
+					p.vel.x = wall_bounce * -std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.y < box_min.y) {
+				p.pos.y = box_min.y;
+				if (p.vel.y < 0.0f) {
+					p.vel.y = wall_bounce * std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+			if (p.pos.y > box_max.y) {
+				p.pos.y = box_max.y;
+				if (p.vel.y > 0.0f) {
+					p.vel.y = wall_bounce * -std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+		}
+
+		//particles vs particles (the slow way):
+		float alpha = 0.9f; //controls particle squish
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+					glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+					p.pos -= alpha * 0.5f * step;
+					p2.pos += alpha * 0.5f * step;
+				}
+			}
+			for (auto &p2 : probes) {
+				if (p2.active == false) continue;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float near = particle_radius + probe_radius;
+				const float near2 = near * near;
+				if (len2 > 0.0f && len2 < near2) {
+					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+					p.pos -= 0.5f * step;
+					p2.pos += 0.5f * step;
+				}
+			}
+		}
+
+		//estimate velocity from motion:
+		for (uint32_t i = 0; i < particles.size(); ++i) {
+			auto &p = particles[i];
+			p.vel = (p.pos - old_pos[i]) / ClayTick;
+		}
+
+		//viscosity (the slow way):
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+				const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+				if (len2 > 0.0f && len2 < outer2) {
+					float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+					glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+					p.vel += (avg - p.vel) * amt;
+					p2.vel += (avg - p2.vel) * amt;
+				}
 			}
 		}
 	}
-
-	//estimate velocity from motion:
-	for (uint32_t i = 0; i < particles.size(); ++i) {
-		auto &p = particles[i];
-		p.vel = (p.pos - old_pos[i]) / ClayTick;
-	}
-
-	//viscosity (the slow way):
-
-	for (auto &p : particles) {
-		for (auto &p2 : particles) {
-			if (&p == &p2) break;
-			glm::vec2 to = p2.pos - p.pos;
-			float len2 = glm::length2(to);
-			const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
-			const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
-			if (len2 > 0.0f && len2 < outer2) {
-				float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
-				glm::vec2 avg = 0.5f * (p2.vel + p.vel);
-				p.vel += (avg - p.vel) * amt;
-				p2.vel += (avg - p2.vel) * amt;
-			}
-		}
-	}
-
-
 }
+
+// void PlayMode::tick_clay() {
+// 	std::vector< glm::vec2 > old_pos;
+// 	old_pos.reserve(particles.size());
+
+// 	//step as per velocity:
+// 	for (auto &p : particles) {
+// 		old_pos.emplace_back(p.pos);
+// 		//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+// 		p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
+// 		//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+// 		p.pos += p.vel * ClayTick;
+// 	}
+
+// 	//probe targets:
+// 	for (auto &p : probes) {
+// 		float len = glm::length(p.target - p.pos);
+// 		float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+// 		if (new_len <= 0.0f) {
+// 			p.pos = p.target;
+// 		} else {
+// 			p.pos += (p.target - p.pos) * (new_len / len);
+// 		}
+// 		p.pos = p.target;
+// 	}
+// 	// const float wall_bounce = 0.5f; prev version
+// 	const float wall_bounce = 0.1f;
+// 	// const float viscosity_radius = 2.0f * particle_radius;
+// 	const float viscosity_radius = 4.0f * particle_radius;
+
+// 	//particles vs world:
+// 	for (auto &p : particles) {
+// 		if (p.pos.x < box_min.x) {
+// 			p.pos.x = box_min.x;
+// 			if (p.vel.x < 0.0f) {
+// 				p.vel.x = wall_bounce * std::abs(p.vel.x);
+// 				old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+// 			}
+// 		}
+// 		if (p.pos.x > box_max.x) {
+// 			p.pos.x = box_max.x;
+// 			if (p.vel.x > 0.0f) {
+// 				p.vel.x = wall_bounce * -std::abs(p.vel.x);
+// 				old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+// 			}
+// 		}
+// 		if (p.pos.y < box_min.y) {
+// 			p.pos.y = box_min.y;
+// 			if (p.vel.y < 0.0f) {
+// 				p.vel.y = wall_bounce * std::abs(p.vel.y);
+// 				old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+// 			}
+// 		}
+// 		if (p.pos.y > box_max.y) {
+// 			p.pos.y = box_max.y;
+// 			if (p.vel.y > 0.0f) {
+// 				p.vel.y = wall_bounce * -std::abs(p.vel.y);
+// 				old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+// 			}
+// 		}
+// 	}
+
+// 	//particles vs particles (the slow way):
+// 	float alpha = 0.9f; //controls particle squish
+// 	for (auto &p : particles) {
+// 		for (auto &p2 : particles) {
+// 			if (&p == &p2) break;
+// 			glm::vec2 to = p2.pos - p.pos;
+// 			float len2 = glm::length2(to);
+// 			if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+// 				glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+// 				p.pos -= alpha * 0.5f * step;
+// 				p2.pos += alpha * 0.5f * step;
+// 			}
+// 		}
+// 		for (auto &p2 : probes) {
+// 			if (p2.active == false) continue;
+// 			glm::vec2 to = p2.pos - p.pos;
+// 			float len2 = glm::length2(to);
+// 			const float near = particle_radius + probe_radius;
+// 			const float near2 = near * near;
+// 			if (len2 > 0.0f && len2 < near2) {
+// 				glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+// 				p.pos -= 0.5f * step;
+// 				p2.pos += 0.5f * step;
+// 			}
+// 		}
+// 	}
+
+// 	//estimate velocity from motion:
+// 	for (uint32_t i = 0; i < particles.size(); ++i) {
+// 		auto &p = particles[i];
+// 		p.vel = (p.pos - old_pos[i]) / ClayTick;
+// 	}
+
+// 	//viscosity (the slow way):
+
+// 	for (auto &p : particles) {
+// 		for (auto &p2 : particles) {
+// 			if (&p == &p2) break;
+// 			glm::vec2 to = p2.pos - p.pos;
+// 			float len2 = glm::length2(to);
+// 			const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+// 			const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+// 			if (len2 > 0.0f && len2 < outer2) {
+// 				float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+// 				glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+// 				p.vel += (avg - p.vel) * amt;
+// 				p2.vel += (avg - p2.vel) * amt;
+// 			}
+// 		}
+// 	}
+// }
