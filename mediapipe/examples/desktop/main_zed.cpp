@@ -25,6 +25,7 @@
 
 // ZED includes
 #include <sl/Camera.hpp>
+#include <math.h>       /* isnan, sqrt */
 
 // Sample includes
 //#include "GLViewer.hpp"
@@ -90,11 +91,20 @@ extern "C" { uint32_t GetACP(); }
 
 # define NUM_LANDMARKS 21
 # define SCALE 2
-# define THRESHOLD 48*SCALE
+# define THRESHOLD_CLOSED 24
+# define THRESHOLD_ACTIVE_MILIMETERS 700
+# define C1 100
+# define C2 585
+# define C3 75
+# define C4 750
+# define C5 (C4-(C3*C1)/C1)/(1-C3/C1)
+# define C6 (C2-C5)/C1
+# define min_count_out 10 
+# define FOCAL_LENGTH 4
 constexpr char kInputStream[] = "input_video";
 //constexpr char kWindowName[] = "MediaPipe";
 constexpr char kOutputLandmarks[] = "hand_landmarks";
-
+int width = 672;
 ABSL_FLAG(std::string, calculator_graph_config_file, "",
           "Name of file containing text format CalculatorGraphConfig proto.");
 ABSL_FLAG(std::string, input_video_path, "",
@@ -133,21 +143,70 @@ cv::Mat slMat2cvMatGPU(sl::Mat& input) {
     // cv::Mat and sl::Mat will share a single memory structure
     return cv::Mat(input.getHeight(), input.getWidth(), getOCVtype(input.getDataType()), input.getPtr<sl::uchar1>(sl::MEM::GPU), input.getStepBytes(sl::MEM::GPU));
 }
+float median(std::vector<float> &v)
+{
+    size_t n = v.size() / 2;
+    //std::cout<<n<<std::endl;
+    if (n == 0)
+        return 0;
+    else{
+        nth_element(v.begin(), v.begin()+n, v.end());
+        return v[n];
+    }
+}
 
-bool isHandClosed(const std::vector<float>& landmarks, int start_index,int num_hands){
+bool isHandActive(const std::vector<float>& landmarks, sl::Mat& point_cloud,int start_index,int num_hands,int& curr_count, float& multiplier,double& distance){
   if (landmarks.size() != NUM_LANDMARKS * 2 * num_hands) {
     std::cerr << "Invalid number of landmarks. Expected " << NUM_LANDMARKS * 2 *num_hands
               << " but got " << landmarks.size() << std::endl;
     return false;
   }
-
-  // Here you can use the 21 landmarks to calculate the distance between thumb and other fingers
-  // based on the position of the landmarks, and determine if the hand is closed or not.
-  // ...
-
-  // For example, a simple heuristic to detect if a hand is closed is to check if the distance
-  // between the thumb and the pinky finger is small enough, which would indicate that the hand
-  // is closed.
+    std::vector<float> distances;
+    for(int i = start_index; i < start_index + NUM_LANDMARKS * 2; i+=2){
+        float depth_value=0;
+        point_cloud.getValue((width-1)-landmarks[i],landmarks[i+1],&depth_value,sl::MEM::GPU);
+        if (!std::isnan(depth_value) && !std::isinf(depth_value)){
+            if (depth_value > 100 && depth_value < 2000){
+                distances.push_back(depth_value);
+            }
+        }
+    }
+    // float depth_value=0;
+    // point_cloud.getValue(300,200,&depth_value,sl::MEM::GPU);
+    //std::cout<<std::endl;
+    // distances.push_back(depth_value);
+    
+    float median_depth = median(distances);
+    if (median_depth>100 & median_depth<585)
+        multiplier = 1;
+    else{
+        
+    }
+    distance = median_depth;
+    std::cout<<median_depth<<" ";
+    if(median_depth > 100 && median_depth < THRESHOLD_ACTIVE_MILIMETERS){
+        if(min_count_out < curr_count){
+            curr_count++;
+        }
+        else{
+            curr_count = 0;
+            return true;
+        }
+    }
+    else{
+        return false;
+    }
+}
+float calculate_new_size(int object_size, int focal_length, float distance_to_object, float new_distance){
+    float new_object_size = (object_size * focal_length * new_distance) / (distance_to_object * 1000);
+    return new_object_size;
+}
+bool isHandClosed(const std::vector<float>& landmarks, int start_index,int num_hands,int& curr_count){
+  if (landmarks.size() != NUM_LANDMARKS * 2 * num_hands) {
+    std::cerr << "Invalid number of landmarks. Expected " << NUM_LANDMARKS * 2 *num_hands
+              << " but got " << landmarks.size() << std::endl;
+    return false;
+  }
 
   // Calculate the distance between the thumb and pinky finger.
   float thumb_x = landmarks[start_index+8];
@@ -157,12 +216,21 @@ bool isHandClosed(const std::vector<float>& landmarks, int start_index,int num_h
   float distance = std::sqrt((thumb_x - pinky_x) * (thumb_x - pinky_x) +
                              (thumb_y - pinky_y) * (thumb_y - pinky_y));
 
+    std::cout<<distance<<" ";
   // If the distance is less than a certain threshold, the hand is considered closed.
-  if (distance < THRESHOLD) {
-    return true;
-  } else {
-    return false;
-  }
+    if(distance < THRESHOLD_CLOSED){
+        if(min_count_out < curr_count){
+            curr_count++;
+        }
+        else{
+            curr_count = 0;
+            return true;
+        }
+    }
+    else{
+        return false;
+    }
+
 }
 
 void parseArgs(int argc, char **argv, sl::InitParameters& param);
@@ -211,6 +279,42 @@ absl::Status RunMPPGraph(int argc, char** argv) {
   gpu_helper.InitializeForTest(graph.GetGpuResources().get());
 
   LOG(INFO) << "Initialize the camera or load the video.";
+    std::string arg = std::string(argv[1]);
+  if(arg.find("zed") != std::string::npos){
+    # define use_zed
+
+
+    // cv::VideoCapture capture;
+    // const bool load_video = !absl::GetFlag(FLAGS_input_video_path).empty();
+    // if (load_video) {
+    //   capture.open(absl::GetFlag(FLAGS_input_video_path));
+    // } else {
+    //   capture.open(0);
+    // }
+    // RET_CHECK(capture.isOpened());
+  }
+  else{
+    # define use_webcam
+  }
+    sl::Camera zed;
+    // Set configuration parameters for the ZED
+    sl::InitParameters init_parameters;
+    init_parameters.depth_mode = sl::DEPTH_MODE::NEURAL;
+    init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP; // OpenGL's coordinate system is right_handed
+    init_parameters.sdk_verbose = 1;
+    parseArgs(argc, argv, init_parameters);
+
+    // Open the camera
+    auto returned_state = zed.open(init_parameters);
+    if (returned_state != sl::ERROR_CODE::SUCCESS) {
+        //print("Camera Open", returned_state, "Exit program.");
+        return absl::InternalError("Camera Open Error");
+    }
+
+    auto camera_config = zed.getCameraInformation().camera_configuration;
+    auto stream = zed.getCUDAStream();
+    // Allocation of 1 channel of float on GPU
+    sl::Mat point_cloud(camera_config.resolution, sl::MAT_TYPE::F32_C1, sl::MEM::GPU);
 //   cv::VideoCapture capture;
 //   const bool load_video = !absl::GetFlag(FLAGS_input_video_path).empty();
 //   if (load_video) {
@@ -236,40 +340,28 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                     graph.AddOutputStreamPoller(kOutputLandmarks));
   MP_RETURN_IF_ERROR(graph.StartRun({}));
 
-    sl::Camera zed;
-    // Set configuration parameters for the ZED
-    sl::InitParameters init_parameters;
-    init_parameters.depth_mode = sl::DEPTH_MODE::NEURAL;
-    init_parameters.coordinate_system = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP; // OpenGL's coordinate system is right_handed
-    init_parameters.sdk_verbose = 1;
-    parseArgs(argc, argv, init_parameters);
-
-    // Open the camera
-    auto returned_state = zed.open(init_parameters);
-    if (returned_state != sl::ERROR_CODE::SUCCESS) {
-        //print("Camera Open", returned_state, "Exit program.");
-        return absl::InternalError("Camera Open Error");
-    }
-
-    auto camera_config = zed.getCameraInformation().camera_configuration;
-    auto stream = zed.getCUDAStream();
-
     sl::RuntimeParameters runParameters;
     // Setting the depth confidence parameters
     runParameters.confidence_threshold = 50;
     runParameters.texture_confidence_threshold = 100;
 
-    // Allocation of 4 channels of float on GPU
-    sl::Mat point_cloud(camera_config.resolution, sl::MAT_TYPE::F32_C1, sl::MEM::GPU);
-    sl::Mat depth_map;
+
 
   LOG(INFO) << "Start grabbing and processing frames.";
   bool grab_frames = true;
   sl::Mat image_zed;
-
+    int count_active_1 = 0;
+    int count_active_2 = 0;
+    int count_closed_1 = 0;
+    int count_closed_2 = 0;
+    double distance_1 = 0.0;
+    double distance_2 = 0.0;
+    width = camera_config.resolution.width;
   while (grab_frames) {
     // Main Loop
     // Check that a new image is successfully acquired
+    #ifdef use_zed
+    #endif
     if (zed.grab(runParameters) == sl::ERROR_CODE::SUCCESS) {
         // retrieve the current 3D coloread point cloud in GPU
         zed.retrieveImage(image_zed, sl::VIEW::LEFT); // Retrieve left image
@@ -291,7 +383,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
 
         cv::Mat image_ocv = slMat2cvMat(image_zed);
         cv::cvtColor(image_ocv, camera_frame, cv::COLOR_BGR2RGBA);
-
+        //cv::flip(point_cloud, point_cloud, /*flipcode=HORIZONTAL*/ 1);
         //std::cout<<camera_frame.cols<<"  "<<camera_frame.rows<<std::endl;
         cv::flip(camera_frame, camera_frame, /*flipcode=HORIZONTAL*/ 1);
         //if (!load_video) {
@@ -334,74 +426,102 @@ absl::Status RunMPPGraph(int argc, char** argv) {
         hand_landmarks.clear();
         //printf("poller is not null.\n");
         if(pPoller_landmarks.QueueSize() > 0){
-        if (pPoller_landmarks.Next(&packet_landmarks)){
-            std::vector<mediapipe::NormalizedLandmarkList> output_landmarks =
-            packet_landmarks.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
-            for (int m = 0; m < output_landmarks.size(); ++m){
-            mediapipe::NormalizedLandmarkList single_hand_NormalizedLandmarkList = output_landmarks[m];
-            for (int i = 0; i < single_hand_NormalizedLandmarkList.landmark_size(); ++i){
-                const mediapipe::NormalizedLandmark landmark = single_hand_NormalizedLandmarkList.landmark(i);
-                
-                int x = landmark.x() * camera_frame.cols * SCALE;
-                int y = landmark.y() * camera_frame.rows * SCALE;
-                //int x = landmark.x();
-                //int y = landmark.y();
+            if (pPoller_landmarks.Next(&packet_landmarks)){
+                std::vector<mediapipe::NormalizedLandmarkList> output_landmarks =
+                packet_landmarks.Get<std::vector<mediapipe::NormalizedLandmarkList>>();
+                for (int m = 0; m < output_landmarks.size(); ++m){
+                    mediapipe::NormalizedLandmarkList single_hand_NormalizedLandmarkList = output_landmarks[m];
+                    for (int i = 0; i < single_hand_NormalizedLandmarkList.landmark_size(); ++i){
+                        const mediapipe::NormalizedLandmark landmark = single_hand_NormalizedLandmarkList.landmark(i);
+                        
+                        int x = landmark.x() * camera_frame.cols;
+                        int y = landmark.y() * camera_frame.rows;
+                        //int x = landmark.x();
+                        //int y = landmark.y();
+                        hand_landmarks.push_back(x);
+                        hand_landmarks.push_back(y);
+                    }
+                }
+                bool hand_1_closed = false;
+                bool hand_2_closed = false;
+                bool hand_1_active = false;
+                bool hand_2_active = false;
+                float multiplier = 1.0;
+                if (hand_landmarks.size()==42){
+                    //printf("hand 1 is closed.\n");
+                    hand_1_closed = isHandClosed(hand_landmarks,0,1,count_closed_1);
+                    hand_1_active = isHandActive(hand_landmarks,point_cloud,0,1,count_active_1,multiplier,distance_1);
+                    std::cout<<" "<<hand_1_closed<<"  "<<hand_1_active<<std::endl;
+                }
+                else if(hand_landmarks.size()==84){
+                    //printf("hand 2 is closed.\n");
+                    hand_1_closed = isHandClosed(hand_landmarks,0,2,count_closed_1);
+                    hand_1_active = isHandActive(hand_landmarks,point_cloud,0,2,count_active_1,  multiplier,distance_1);
+                    hand_2_closed = isHandClosed(hand_landmarks, 42,2,count_closed_2);
+                    hand_2_active = isHandActive(hand_landmarks,point_cloud,42,2,count_active_2,multiplier,distance_2);
+                    std::cout<<hand_1_closed<<" "<<hand_1_active<<" "<<hand_2_closed<<"  "<<hand_2_active<<std::endl;
+                }
+                //printf("hand points size = %d.\n", hand_landmarks.size());
+                // Lock the mutex
+                std::unique_lock<Mutex> lock(*mutex);
+                // Write the data to shared memory
+                myvector->clear();
+                //for (int i = 0; i < 2; i++) {
+                if (hand_landmarks.size()==42){
+                    if (distance_1<1000 && distance_1>0){
+                        myvector->push_back(1); //num_hands
+                        myvector->push_back(int(hand_1_closed)); //hand 1 closed
+                        myvector->push_back(int(hand_1_active)); //hand 1 closed
+                        myvector->push_back(hand_landmarks[16]* SCALE); //pointing finger
+                        myvector->push_back(hand_landmarks[17]* SCALE);
+                        myvector->push_back(hand_landmarks[8]* SCALE); //thumb finger
+                        myvector->push_back(hand_landmarks[9]* SCALE);
+                        condvar->notify_one();
+                    }
+                }
+                else if(hand_landmarks.size()==84){
+                    if (distance_1<1000 && distance_1>0 && distance_2<1000 && distance_2>0){
+                        myvector->push_back(2); //num_hands
+                        //HAND 1
+                        myvector->push_back(int(hand_1_closed)); //hand 1 closed
+                        myvector->push_back(int(hand_1_active)); //hand 1 closed
+                        myvector->push_back(hand_landmarks[16]* SCALE); //pointing finger
+                        myvector->push_back(hand_landmarks[17]* SCALE);
+                        myvector->push_back(hand_landmarks[8]* SCALE); //thumb finger
+                        myvector->push_back(hand_landmarks[9]* SCALE);
 
-                hand_landmarks.push_back(x);
-                hand_landmarks.push_back(y);
-            }
-            }
-            bool hand_1_closed = false;
-            bool hand_2_closed = false;
-            if (hand_landmarks.size()==42){
-            //printf("hand 1 is closed.\n");
-            hand_1_closed = isHandClosed(hand_landmarks,0,1);  
-            std::cout<<"hand 1 closed: "<<hand_1_closed<<std::endl;
-            }
-            else if(hand_landmarks.size()==84){
-            //printf("hand 2 is closed.\n");
-            hand_1_closed = isHandClosed(hand_landmarks,0,2);
-            hand_2_closed = isHandClosed(hand_landmarks, 42,2);
-            std::cout<<"hand 1 closed: "<<hand_1_closed<<"hand 2 closed: "<<hand_2_closed<<std::endl;
-            }
-            //printf("hand points size = %d.\n", hand_landmarks.size());
-            // Lock the mutex
-            std::unique_lock<Mutex> lock(*mutex);
-            // Write the data to shared memory
-            myvector->clear();
-            //for (int i = 0; i < 2; i++) {
-            if (hand_landmarks.size()==42){
-            myvector->push_back(1); //num_hands
-            myvector->push_back(int(hand_1_closed)); //hand 1 closed
-            myvector->push_back(hand_landmarks[16]); //pointing finger
-            myvector->push_back(hand_landmarks[17]);
-            myvector->push_back(hand_landmarks[8]); //thumb finger
-            myvector->push_back(hand_landmarks[9]);
-            }
-            else if(hand_landmarks.size()==84){
-            myvector->push_back(2); //num_hands
-            //HAND 1
-            myvector->push_back(int(hand_1_closed)); //hand 1 closed
-            myvector->push_back(hand_landmarks[16]); //pointing finger
-            myvector->push_back(hand_landmarks[17]);
-            myvector->push_back(hand_landmarks[8]); //thumb finger
-            myvector->push_back(hand_landmarks[9]);
-            
-            //HAND 2
-            myvector->push_back(int(hand_2_closed)); //hand 2 closed
-            myvector->push_back(hand_landmarks[58]); //pointing finger
-            myvector->push_back(hand_landmarks[59]);
-            myvector->push_back(hand_landmarks[50]); //thumb finger
-            myvector->push_back(hand_landmarks[51]);
-            }
-            //}
-            // for (int i = 0; i < 4; i++) {
-            //     myvector->push_back(rand() % 100);
-            // }
+                        //HAND 2
+                        myvector->push_back(int(hand_2_closed)); //hand 2 closed
+                        myvector->push_back(int(hand_2_active)); //hand 1 closed
 
-            // Notify the condition variable
-            condvar->notify_one();
-        }
+                        myvector->push_back(hand_landmarks[58]* SCALE); //pointing finger
+                        myvector->push_back(hand_landmarks[59]* SCALE);
+                        myvector->push_back(hand_landmarks[50]* SCALE); //thumb finger
+                        myvector->push_back(hand_landmarks[51]* SCALE);
+                        condvar->notify_one();
+                    }
+                    else if (distance_1<1000 && distance_1>0){
+                        myvector->push_back(1); //num_hands
+                        myvector->push_back(int(hand_1_closed)); //hand 1 closed
+                        myvector->push_back(int(hand_1_active)); //hand 1 closed
+                        myvector->push_back(hand_landmarks[16]* SCALE); //pointing finger
+                        myvector->push_back(hand_landmarks[17]* SCALE);
+                        myvector->push_back(hand_landmarks[8]* SCALE); //thumb finger
+                        myvector->push_back(hand_landmarks[9]* SCALE);
+                        condvar->notify_one();
+                    }
+                    else if (distance_2<1000 && distance_2>0){
+                        myvector->push_back(1); //num_hands
+                        myvector->push_back(int(hand_2_closed)); //hand 2 closed
+                        myvector->push_back(int(hand_2_active)); //hand 1 closed
+                        myvector->push_back(hand_landmarks[58]* SCALE); //pointing finger
+                        myvector->push_back(hand_landmarks[59]* SCALE);
+                        myvector->push_back(hand_landmarks[50]* SCALE); //thumb finger
+                        myvector->push_back(hand_landmarks[51]* SCALE);
+                        condvar->notify_one();}
+                }
+                // Notify the condition variable
+            }
         }
 
 
@@ -412,7 +532,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
         delta_ticks = clock() - current_ticks; //the time, in ms, that took to render the scene
         if(delta_ticks > 0)
             fps = CLOCKS_PER_SEC / delta_ticks;
-        std::cout << "FPS:"<<fps << std::endl;
+        //std::cout << "FPS:"<<fps << std::endl;
     }
     //LOG(INFO) << fps;
   }
@@ -468,6 +588,9 @@ void parseArgs(int argc, char **argv, sl::InitParameters& param) {
             std::cout << "[Sample] Using Camera in resolution HD720" << std::endl;
         } else if (arg.find("VGA") != std::string::npos) {
             param.camera_resolution = sl::RESOLUTION::VGA;
+            std::cout << "[Sample] Using Camera in resolution VGA" << std::endl;
+        } else if (arg.find("webcam") != std::string::npos) {
+            //param.camera_resolution = sl::RESOLUTION::VGA;
             std::cout << "[Sample] Using Camera in resolution VGA" << std::endl;
         }
     } else {
