@@ -95,7 +95,8 @@ int main(int argc, char **argv) {
 		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		//1280, 720, //TODO: modify window size if you'd like
 		//640, 420,
-		1280,960, //640x480 x2
+		//1280,960, //640x480 x2
+		1344,752,			//672x376 x2
 		SDL_WINDOW_OPENGL
 		| SDL_WINDOW_RESIZABLE //uncomment to allow resizing
 		| SDL_WINDOW_ALLOW_HIGHDPI //uncomment for full resolution on high-DPI screens
@@ -180,15 +181,15 @@ int main(int argc, char **argv) {
 				std::vector<int>* coordinates = nullptr;
 				int num_hands = (*myvector)[0];
 				if (num_hands==1){
-					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5]});
+					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],(*myvector)[6]});
 					event.user.data1 = coordinates;
 					SDL_PushEvent(&event);
 				}
 				else if (num_hands==2){
-					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],
-										(*myvector)[6],(*myvector)[7],(*myvector)[8],(*myvector)[9],(*myvector)[10]});
+					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],(*myvector)[6],
+										(*myvector)[7],(*myvector)[8],(*myvector)[9],(*myvector)[10],(*myvector)[11],(*myvector)[12]});
 					event.user.data1 = coordinates;
-					if ((*myvector)[1] && (*myvector)[6]){
+					if ((*myvector)[1] && (*myvector)[7]){
 						SDL_Event event_reset;
 						event_reset.type = SDL_KEYDOWN;
 						event_reset.key.keysym.sym = SDLK_BACKSPACE;
