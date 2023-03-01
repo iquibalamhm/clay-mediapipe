@@ -154,3 +154,10 @@ We welcome contributions. Please follow these
 
 We use GitHub issues for tracking requests and bugs. Please post questions to
 the MediaPipe Stack Overflow with a `mediapipe` tag.
+
+## Build and run depth sensing with ZED and Clay-like simulation with bazel.
+```
+bazel build -c opt --copt -DMESA_EGL_NO_X11_HEADERS --copt -DEGL_NO_X11   mediapipe/examples/desktop/hand_tracking:game
+
+GLOG_logtostderr=1 bazel-bin/mediapipe/examples/desktop/hand_tracking/game VGA --calculator_graph_config_file=mediapipe/graphs/hand_tracking/hand_tracking_desktop_live_gpu.pbtxt
+```
