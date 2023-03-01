@@ -86,7 +86,7 @@ cc_binary(
         "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
     ],
     deps = [
-        "//mediapipe/examples/desktop:main",
+        "//mediapipe/examples/desktop:main_game",
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )
@@ -143,6 +143,32 @@ cc_binary(
     ],
     deps = [
         "//mediapipe/examples/desktop:zed_depth",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# ZED camera depth sensing
+cc_binary(
+    name = "simulation_test",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:simulation_test",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# Fake vector generator
+cc_binary(
+    name = "fake_vector",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:fake_vector",
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )

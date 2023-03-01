@@ -15,6 +15,7 @@
 
 //Includes for libSDL:
 #include <SDL.h>
+#include <mutex>
 
 //Shared memory
 #include <boost/interprocess/shared_memory_object.hpp>
@@ -40,6 +41,20 @@
 #ifdef _WIN32
 extern "C" { uint32_t GetACP(); }
 #endif
+constexpr char kSharedMemorySegmentName[] = "SharedMemory";
+
+bool exists()
+{
+    try
+    {
+        boost::interprocess::managed_shared_memory segment(boost::interprocess::open_only, kSharedMemorySegmentName);
+        return segment.check_sanity();
+    } 
+    catch (const std::exception &ex) {
+        std::cout << "managed_shared_memory ex: "  << ex.what();
+    }
+    return false;
+}
 int main(int argc, char **argv) {
 #ifdef _WIN32
 	{ //when compiled on windows, check that code page is forced to utf-8 (makes file loading/saving work right):
@@ -55,23 +70,42 @@ int main(int argc, char **argv) {
 	//when compiled on windows, unhandled exceptions don't have their message printed, which can make debugging simple issues difficult.
 	try {
 #endif
+	// Check if shared memory object exists
+    bool exist = exists();
+	// Access the vector in shared memory
+	typedef boost::interprocess::allocator<int, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
+	typedef boost::interprocess::vector<int, ShmemAllocator> MyVector;
+	typedef boost::interprocess::interprocess_mutex Mutex;
+	MyVector *myvector;
+	Mutex *mutex;
 
-    boost::interprocess::managed_shared_memory segment(boost::interprocess::open_only, "SharedMemory");
+	typedef boost::interprocess::interprocess_condition CondVar;
+	CondVar *condvar;
+    if (exist) {
+        // Open existing shared memory object
+		std::cout << "Configuring shared memory" << std::endl;
+        boost::interprocess::managed_shared_memory segment(boost::interprocess::open_only, kSharedMemorySegmentName);
+		//------------  initialization ------------
+		//MyVector *myvector = segment.find<MyVector>("MyVector").first;
+		std::cout << "Configuring vector memory" << std::endl;
 
-    // Access the vector in shared memory
-    typedef boost::interprocess::allocator<int, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
-    typedef boost::interprocess::vector<int, ShmemAllocator> MyVector;
-    MyVector *myvector = segment.find<MyVector>("MyVector").first;
+	    myvector = segment.find<MyVector>("MyVector").first;
+		std::cout << "Configuring mutex" << std::endl;
 
-    // Access the mutex in shared memory
-    typedef boost::interprocess::interprocess_mutex Mutex;
-    Mutex *mutex = segment.find<Mutex>("Mutex").first;
+		// Access the mutex in shared memory
+		mutex = segment.find<Mutex>("Mutex").first;
+		std::cout << "Configuring condvar" << std::endl;
 
-    // Access the condition variable in shared memory
-    typedef boost::interprocess::interprocess_condition CondVar;
-    CondVar *condvar = segment.find<CondVar>("CondVar").first;
-	//------------  initialization ------------
+		// Access the condition variable in shared memory
+		condvar = segment.find<CondVar>("CondVar").first;
+    } else {
+        // Create new shared memory object
+        std::cerr << "Failed to open shared memory segment: " << std::endl;
+    }
 
+
+	
+		//------------  initialization ------------
 	//Initialize SDL library:
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -163,15 +197,16 @@ int main(int argc, char **argv) {
 		//every pass through the game loop creates one frame of output
 		//  by performing three steps:
 		static SDL_Event evt;
-		{
+		if(exist){
+			std::cout << "Waiting for data" << std::endl;
 			// Lock the mutex
-        	std::unique_lock<Mutex> lock(*mutex);
-
-        	// Check if the data has been modified
-        	if (myvector->size() == 0) {
-            	lock.unlock();
-            	//continue;
-        	}
+			std::unique_lock<Mutex> lock(*mutex);
+			std::cout << "Waiting for data" << std::endl;
+			// Check if the data has been modified
+			if (myvector->size() == 0) {
+				lock.unlock();
+				//continue;
+			}
 			else{
 				condvar->notify_one();
 				double diff_y = abs((*myvector)[1]-(*myvector)[3]);
@@ -201,7 +236,6 @@ int main(int argc, char **argv) {
 				}				
 				myvector->clear();
 			}			
-
 		}
 		{ //(1) process any events that are pending
 			while (SDL_PollEvent(&evt) == 1) {

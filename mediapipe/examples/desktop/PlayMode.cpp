@@ -18,7 +18,6 @@
 #include <eigen3/Eigen/QR>
 #include <boost/thread.hpp>
 
-
 PlayMode::PlayMode() {
 	reset_clay();
 }
@@ -70,7 +69,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		if (num_hands == 1){
 			hand_1_closed = (*coordinates)[1];
 			hand_1_active = (*coordinates)[2];
-			std::cout<<"closed: "<<hand_1_closed<<"  active:"<<hand_1_active<<std::endl;
+			//std::cout<<"closed: "<<hand_1_closed<<"  active:"<<hand_1_active<<std::endl;
 			x1 = (*coordinates)[3];
 			y1 = (*coordinates)[4];
 			x2 = (*coordinates)[5];
@@ -115,6 +114,7 @@ float l2_norm(std::vector<double> const& u) {
     }
     return sqrt(accum);
 }
+
 void PlayMode::polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &l2_error,int order){
 	// Create Matrix Placeholder of size n x k, n= number of datapoints, k = order of polynomial, for example k = 3 for cubic polynomial
 	//Fit a line
@@ -460,38 +460,35 @@ void PlayMode::reset_clay() {
 
 	probe_rot = 0.0f; //Set the rotation back to zero:
 }
+
+
+Eigen::Vector2f toEigen(glm::vec2 v) {
+    return Eigen::Vector2f(v.x, v.y);
+}
+glm::vec2 toGlm(const Eigen::Vector2f& v) {
+    return glm::vec2(v.x(), v.y());
+}
+
+// glm::mat2 toGlm(const Eigen::Matrix2f& m) {
+//     return glm::mat2(
+//         m(0, 0), m(0, 1),
+//         m(1, 0), m(1, 1)
+//     );
+// }
 void PlayMode::tick_clay() {
+	const float kTimeStep = 0.01f;
+    const float kElasticity = 0.9f;
+    const float kFriction = 0.5f;
 	if (rigid==true){
 		//rigid body: simulation
-    	// Calculate the center of mass and moment of inertia of the particles
-    	cx = 0.0;
-    	cy = 0.0;
-    	I = 0.0;		
-		for (auto &p : particles) {
-            cx += p.pos.x;
-            cy += p.pos.y;
-            //m += particles[i].mass;
-            Ixx += (p.pos.y * p.pos.y);
-            Iyy += (p.pos.x * p.pos.x);
-        }
-		cx /= particles.size();
-		cy /= particles.size();
-		for (auto &p : particles) {
-			double x = p.pos.x - cx;
-			double y = p.pos.y - cy;
-			I += (x * x + y * y);
-    	}
-		double Iinv = 1.0 / I;
-		double Ixx = Iinv * (cy * cy);
-		double Iyy = Iinv * (cx * cx);
-		double Izz = Ixx + Iyy;
+
 		//step as per velocity:
 		std::vector< glm::vec2 > old_pos;
 		old_pos.reserve(particles.size());
 		for (auto &p : particles) {
 			old_pos.emplace_back(p.pos);
 			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
-			p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
+			p.vel *= std::pow(0.05f, ClayTick / 0.01f); //friction / damping better performandce
 			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
 			p.pos += p.vel * ClayTick;
 		}
@@ -506,35 +503,459 @@ void PlayMode::tick_clay() {
 			}
 			p.pos = p.target;
 		}
-				//particles vs particles (the slow way):
-		float alpha = 0.9f; //controls particle squish
-		for (auto &p2 : probes) {
-			bool flag_moved = false;
-			glm::vec2 step;
-			for (auto &p : particles) {
-			// bool touching = false;
-				//if (p2.active == false) continue;
-					glm::vec2 to = p2.pos - p.pos;
-					float len2 = glm::length2(to);
-					const float near = particle_radius + probe_radius;
-					const float near2 = near * near;
-					if (len2 > 0.0f && len2 < near2) {
-						step = to * (near / std::sqrt(len2) - 1.0f);
-						//p.pos -= 0.5f * step;
-						p2.pos += 0.5f * step;
-						flag_moved = true;
-						break;
-					}
-		
-				//std::cout<<"touching "<<touching<<std::endl;
-			}
-			if (flag_moved = true){
-				for (auto &p : particles) {
-					p.pos -= 0.5f * step;
+	// 	for (auto& probe : probes) {
+    //     if (probe.active) {
+    //         Eigen::Matrix2f R;
+    //         glm::vec2 center_of_mass = glm::vec2(0.0f, 0.0f);
+    //         Eigen::Matrix<float, 2, Eigen::Dynamic> P(2, particles.size());
+    //         P.setZero();
+
+    //         // compute center of mass and particle positions relative to center of mass
+    //         for (size_t i = 0; i < particles.size(); ++i) {
+    //             center_of_mass += particles[i].pos;
+    //         }
+    //         center_of_mass /= particles.size();
+
+    //         for (size_t i = 0; i < particles.size(); ++i) {
+    //             particles[i].pos -= center_of_mass;
+    //             P.col(i) = Eigen::Vector2f(particles[i].pos.x, particles[i].pos.y);
+    //         }
+
+    //         // compute probe target position relative to center of mass
+    //         Eigen::Vector2f t = Eigen::Vector2f(probe.target.x, probe.target.y) - toEigen(center_of_mass);
+
+    //         // compute rotation matrix R using SVD
+    //         Eigen::Matrix<float, 2, Eigen::Dynamic> U, V;
+    //         Eigen::Vector2f S;
+    //         Eigen::BDCSVD<Eigen::MatrixXf> svd(P * t);
+    //         U = svd.matrixU();
+    //         V = svd.matrixV();
+    //         S = svd.singularValues();
+    //         R = V * U.transpose();
+
+    //         // update particle positions and velocities
+    //         for (size_t i = 0; i < particles.size(); ++i) {
+    //             Eigen::Vector2f new_pos = R * P.col(i) + toEigen(center_of_mass);
+    //             glm::vec2 pos_diff = glm::vec2(new_pos.x(), new_pos.y()) - particles[i].pos;
+    //             glm::vec2 vel_diff = pos_diff / ClayTick - particles[i].vel;
+    //             particles[i].pos = glm::vec2(new_pos.x(), new_pos.y());
+    //             particles[i].vel += vel_diff * kElasticity;
+    //             particles[i].vel *= 1.0f - kFriction;
+    //         }
+
+    //         // check for collisions and move particles away from probe
+    //         for (size_t i = 0; i < particles.size(); ++i) {
+    //             glm::vec2 dir = particles[i].pos - probe.pos;
+    //             float dist = glm::length(dir);
+    //             float radius = 0.5f;
+    //             if (dist < radius) {
+    //                 dir = glm::normalize(dir);
+    //                 particles[i].pos -= 2.0f * (radius - dist) * dir;
+    //             }
+    //         }
+    //     }
+		//particles vs particles (the slow way):
+
+		float alpha = 0.1f; //controls particle squish
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+					glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+					p.pos -= alpha * 0.5f * step;
+					p2.pos += alpha * 0.5f * step;
 				}
 			}
-			flag_moved = false;
 		}
+
+		// Collect all the active probes
+		std::vector<Probe> active_probes;
+		for (auto& probe : probes) {
+			if (probe.active) {
+				active_probes.push_back(probe);
+			}
+		}
+
+		if (active_probes.size() < 1) {
+			std::cout<<"No active probes"<<std::endl;
+			return;
+		}
+
+		// Compute the merged indices of the particles within all the active probes' radii
+		std::vector<size_t> indices;
+		for (size_t i = 0; i < particles.size(); i++) {
+			glm::vec2 pos = particles[i].pos;
+			bool in_radius = true;
+			for (auto& probe : active_probes) {
+				float dist = glm::distance(pos, probe.pos);
+				if (dist < probe_radius) {
+					indices.push_back(i);
+				}
+			}
+			// if (in_radius) {
+			// 	indices.push_back(i);
+			// }
+		}
+
+		if (indices.size() < 3) {
+			//std::cout<<"No touching particles"<<std::endl;
+			return;
+		}
+		// else{
+		// 	std::cout<<"Touching particles"<<std::endl;
+		// }
+
+		// Compute the center of mass of the particles within all the active probes' radii
+		Eigen::Vector2f center_of_mass(0.0f, 0.0f);
+		float total_mass = 0.0f;
+		for (auto i : indices) {
+			float mass = 1.0f;  // All particles have the same mass
+			center_of_mass += mass * Eigen::Vector2f(particles[i].pos.x, particles[i].pos.y);
+			total_mass += mass;
+		}
+		center_of_mass /= total_mass;
+
+		// Compute the merged covariance matrix of the particles within all the active probes' radii
+		Eigen::Matrix2f covariance_matrix = Eigen::Matrix2f::Zero();
+		for (auto i : indices) {
+			float mass = 1.0f;  // All particles have the same mass
+			Eigen::Vector2f p_i(particles[i].pos.x, particles[i].pos.y);
+			Eigen::Vector2f delta_p = p_i - center_of_mass;
+			covariance_matrix += mass * delta_p * delta_p.transpose();
+		}
+
+		// Compute the singular value decomposition of the merged covariance matrix
+		Eigen::JacobiSVD<Eigen::Matrix2f> svd(covariance_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+		// Compute the optimal rotation and translation
+		Eigen::Matrix2f R = svd.matrixV() * svd.matrixU().transpose();
+		Eigen::Vector2f t = Eigen::Vector2f::Zero();
+		for (auto& probe : active_probes) {
+			t += toEigen(probe.target) - R * center_of_mass - toEigen(probe.pos);
+		}
+		t /= active_probes.size();
+
+		// Update the position of the particles and the probes
+		for (auto &p : particles) {
+			glm::vec2 p_i = p.pos;
+			Eigen::Vector2f new_pos = R * Eigen::Vector2f(p_i.x, p_i.y) - 0.001f * t;
+			p.pos.x = new_pos[0];
+			p.pos.y = new_pos[1];
+		}
+		for (auto &probe : active_probes) {
+			glm::vec2 pr = probe.pos;
+			probe.pos = toGlm(R * toEigen(pr) + 0.001f * t);
+		}
+
+		// for (auto& probe : probes) {
+		// 	if (probe.active) {
+		// 		// Get the indices of the particles within the probe's radius
+		// 		std::vector<size_t> indices;
+		// 		for (size_t i = 0; i < particles.size(); i++) {
+		// 			float dist = glm::distance(particles[i].pos, probe.pos);
+		// 			
+		
+		// 		}
+
+		// 		if (indices.size() < 3) {
+		// 			continue;
+		// 		}
+
+		// 		// Compute the center of mass of the particles within the probe's radius
+		// 		Eigen::Vector2f center_of_mass(0.0f, 0.0f);
+		// 		float total_mass = 0.0f;
+		// 		for (auto i : indices) {
+		// 			float mass = 1.0f;  // All particles have the same mass
+		// 			center_of_mass += mass * Eigen::Vector2f(particles[i].pos.x, particles[i].pos.y);
+		// 			total_mass += mass;
+		// 		}
+		// 		center_of_mass /= total_mass;
+
+		// 		// Compute the covariance matrix of the particles within the probe's radius
+		// 		Eigen::Matrix2f covariance_matrix = Eigen::Matrix2f::Zero();
+		// 		for (auto i : indices) {
+		// 			float mass = 1.0f;  // All particles have the same mass
+		// 			Eigen::Vector2f p_i(particles[i].pos.x, particles[i].pos.y);
+		// 			Eigen::Vector2f delta_p = p_i - center_of_mass;
+		// 			covariance_matrix += mass * delta_p * delta_p.transpose();
+		// 		}
+
+		// 		// Compute the singular value decomposition of the covariance matrix
+		// 		Eigen::JacobiSVD<Eigen::Matrix2f> svd(covariance_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+		// 		// Compute the optimal rotation and translation
+		// 		Eigen::Matrix2f R = svd.matrixV() * svd.matrixU().transpose();
+		// 		Eigen::Vector2f t = toEigen(probe.target) - R * center_of_mass;
+
+		// 		// Update the position of the particles
+		// 		// for (auto i : indices) {
+		// 		//     glm::vec2 p_i = particles[i].pos;
+		// 		//     Eigen::Vector2f new_pos = R * Eigen::Vector2f(p_i.x, p_i.y) + t;
+		// 		//     particles[i].pos.x = new_pos[0];
+		// 		//     particles[i].pos.y = new_pos[1];
+		// 		// }
+		// 		for (auto &p : particles) {
+		// 			glm::vec2 p_i = p.pos;
+		// 			Eigen::Vector2f new_pos = R * Eigen::Vector2f(p_i.x, p_i.y) - 0.001f * t;
+		// 			p.pos.x = new_pos[0];
+		// 			p.pos.y = new_pos[1];
+		// 		}
+		// 		glm::vec2 pr = probe.pos;
+		// 		probe.pos.x += 0.001f * t[0];
+		// 		probe.pos.y += 0.001f * t[1];
+
+				
+		// 	}
+		// }
+		//estimate velocity from motion:
+		for (uint32_t i = 0; i < particles.size(); ++i) {
+			auto &p = particles[i];
+			p.vel = (p.pos - old_pos[i]) / ClayTick;
+		}
+		const float viscosity_radius = 4.0f * particle_radius;
+
+		//viscosity (the slow way):
+		// for (auto &p : particles) {
+		// 	for (auto &p2 : particles) {
+		// 		if (&p == &p2) break;
+		// 		glm::vec2 to = p2.pos - p.pos;
+		// 		float len2 = glm::length2(to);
+		// 		const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+		// 		const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+		// 		if (len2 > 0.0f && len2 < outer2) {
+		// 			float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+		// 			glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+		// 			p.vel += (avg - p.vel) * amt;
+		// 			p2.vel += (avg - p2.vel) * amt;
+		// 		}
+		// 	}
+		// }
+    // 	cx = 0.0;
+    // 	cy = 0.0;
+    // 	I = 0.0;		
+	// 	for (auto &p : particles) {
+    //         cx += p.pos.x;
+    //         cy += p.pos.y;
+    //         //m += particles[i].mass;
+    //         Ixx += (p.pos.y * p.pos.y);
+    //         Iyy += (p.pos.x * p.pos.x);
+    //     }
+	// 	cx /= particles.size();
+	// 	cy /= particles.size();
+	// 	for (auto &p : particles) {
+	// 		double x = p.pos.x - cx;
+	// 		double y = p.pos.y - cy;
+	// 		I += (x * x + y * y);
+    // 	}
+	// 	double Iinv = 1.0 / I;
+	// 	double Ixx = Iinv * (cy * cy);
+	// 	double Iyy = Iinv * (cx * cx);
+	// 	double Izz = Ixx + Iyy;
+	// 	//step as per velocity:
+	// 	std::vector< glm::vec2 > old_pos;
+	// 	old_pos.reserve(particles.size());
+	// 	for (auto &p : particles) {
+	// 		old_pos.emplace_back(p.pos);
+	// 		//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+	// 		p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
+	// 		//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+	// 		p.pos += p.vel * ClayTick;
+	// 	}
+	// 	//probe targets:
+	// 	for (auto &p : probes) {
+	// 		float len = glm::length(p.target - p.pos);
+	// 		float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+	// 		if (new_len <= 0.0f) {
+	// 			p.pos = p.target;
+	// 		} else {
+	// 			p.pos += (p.target - p.pos) * (new_len / len);
+	// 		}
+	// 		p.pos = p.target;
+	// 	}
+	// 	//particles vs particles (the slow way):
+	// 	float alpha = 0.9f; //controls particle squish
+	// 	std::vector<Particle> prev_particles;
+	// 	std::vector<Probe> new_particles;
+	// 	// Step 1: Compute centroids of particles and probes
+	// // Compute the center of mass of active particles
+	// 	Eigen::Vector2f center_of_mass = Eigen::Vector2f::Zero();
+	// 	int active_particle_count = 0;
+	// 	for (auto &p2 : particles) {
+	// 		if (p2.vel != Eigen::Vector2f::Zero()) {
+	// 			center_of_mass += p2.pos;
+	// 			active_particle_count++;
+	// 		}
+	// 	}
+	// 	if (active_particle_count == 0) {
+	// 		return;  // No active particles
+	// 	}
+	// 	center_of_mass /= active_particle_count;
+
+	// 	// Compute the covariance matrix of active particles
+	// 	Eigen::Matrix2f covariance_matrix = Eigen::Matrix2f::Zero();
+	// 	for (const Particle& particle : particles) {
+	// 		if (particle.vel != Eigen::Vector2f::Zero()) {
+	// 			Eigen::Vector2f deviation = particle.pos - center_of_mass;
+	// 			covariance_matrix += deviation * deviation.transpose();
+	// 		}
+	// 	}
+	// 	covariance_matrix /= active_particle_count;
+
+	// 	for (auto &p2 : probes) {
+	// 		bool flag_moved = false;
+	// 		glm::vec2 step;
+	// 		for (auto &p : particles) {
+	// 		// bool touching = false;
+	// 			//if (p2.active == false) continue;
+	// 				glm::vec2 to = p2.pos - p.pos;
+	// 				float len2 = glm::length2(to);
+	// 				const float near = particle_radius + probe_radius;
+	// 				const float near2 = near * near;
+	// 				if (len2 > 0.0f && len2 < near2) {
+	// 					step = to * (near / std::sqrt(len2) - 1.0f);
+	// 					//p.pos -= 0.5f * step;
+	// 					prev_particles.push_back(p);
+	// 					p2.pos += 0.5f * step;
+	// 					new_particles.push_back(p2);
+	// 					flag_moved = true;
+	// 					break;
+	// 				}
+	// 		}
+	// 		// 	//std::cout<<"touching "<<touching<<std::endl;
+	// 		// }
+	// 		// Apply the spring force between the probe and particles
+	// 		// for (int i = 0; i < particles.size(); i++) {
+	// 		// 	double dx = particles[i].pos.x - cx;
+	// 		// 	double dy = particles[i].pos.y - cy;
+	// 		// 	double r = sqrt(dx * dx + dy * dy);
+	// 		// 	double f = -k * (r - probe_radius);
+	// 		// 	particles[i].vx += dt * (probe.fx * f) / particles[i].mass;
+	// 		// 	particles[i].vy += dt * (probe.fy * f) / particles[i].mass;
+	// 		// 	probe.fx += dt * (dx * f);
+	// 		// 	probe.fy += dt * (dy * f);
+	// 		// }
+	// 		if (flag_moved == true){
+	// 			for (auto &p : particles) {
+	// 				p.pos -= 0.5f * step;
+	// 			}
+	// 		}
+			
+	// 		flag_moved = false;
+	// 	}
+	}
+	else if(mod_1){
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+
+		//step as per velocity:
+		for (auto &p : particles) {
+			old_pos.emplace_back(p.pos);
+			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+			p.vel *= std::pow(0.1f, ClayTick / 0.05f); //friction / damping better performandce
+			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			p.pos += p.vel * ClayTick;
+		}
+
+		//probe targets:
+		for (auto &p : probes) {
+			float len = glm::length(p.target - p.pos);
+			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+			if (new_len <= 0.0f) {
+				p.pos = p.target;
+			} else {
+				p.pos += (p.target - p.pos) * (new_len / len);
+			}
+			p.pos = p.target;
+		}
+		// const float wall_bounce = 0.5f; prev version
+		const float wall_bounce = 0.1f;
+		// const float viscosity_radius = 2.0f * particle_radius;
+		const float viscosity_radius = 25.0f * particle_radius;
+
+		//particles vs world:
+		for (auto &p : particles) {
+			if (p.pos.x < box_min.x) {
+				p.pos.x = box_min.x;
+				if (p.vel.x < 0.0f) {
+					p.vel.x = wall_bounce * std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.x > box_max.x) {
+				p.pos.x = box_max.x;
+				if (p.vel.x > 0.0f) {
+					p.vel.x = wall_bounce * -std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.y < box_min.y) {
+				p.pos.y = box_min.y;
+				if (p.vel.y < 0.0f) {
+					p.vel.y = wall_bounce * std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+			if (p.pos.y > box_max.y) {
+				p.pos.y = box_max.y;
+				if (p.vel.y > 0.0f) {
+					p.vel.y = wall_bounce * -std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+		}
+
+		//particles vs particles (the slow way):
+		float alpha = 0.9f; //controls particle squish
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+					glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+					p.pos -= alpha * 0.5f * step;
+					p2.pos += alpha * 0.5f * step;
+				}
+			}
+			for (auto &p2 : probes) {
+				if (p2.active == false) continue;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float near = particle_radius + probe_radius;
+				const float near2 = near * near;
+				if (len2 > 0.0f && len2 < near2) {
+					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+					p.pos -= 0.5f * step;
+					p2.pos += 0.5f * step;
+				}
+			}
+		}
+
+		//estimate velocity from motion:
+		for (uint32_t i = 0; i < particles.size(); ++i) {
+			auto &p = particles[i];
+			p.vel = (p.pos - old_pos[i]) / ClayTick;
+		}
+
+		//viscosity (the slow way):
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+				const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+				if (len2 > 0.0f && len2 < outer2) {
+					float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+					glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+					p.vel += (avg - p.vel) * amt;
+					p2.vel += (avg - p2.vel) * amt;
+				}
+			}
+		}
+
 	}
 	else{
 		std::vector< glm::vec2 > old_pos;
@@ -648,7 +1069,6 @@ void PlayMode::tick_clay() {
 		}
 	}
 }
-
 // void PlayMode::tick_clay() {
 // 	std::vector< glm::vec2 > old_pos;
 // 	old_pos.reserve(particles.size());

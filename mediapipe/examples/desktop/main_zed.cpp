@@ -100,10 +100,13 @@ extern "C" { uint32_t GetACP(); }
 # define C5 (C4-(C3*C1)/C1)/(1-C3/C1)
 # define C6 (C2-C5)/C1
 # define min_count_out 10 
+# define COUNT_NOT_HANDS 10 
 # define FOCAL_LENGTH 4
 constexpr char kInputStream[] = "input_video";
 //constexpr char kWindowName[] = "MediaPipe";
 constexpr char kOutputLandmarks[] = "hand_landmarks";
+constexpr char kSharedMemorySegmentName[] = "SharedMemory";
+
 int width = 672;
 ABSL_FLAG(std::string, calculator_graph_config_file, "",
           "Name of file containing text format CalculatorGraphConfig proto.");
@@ -135,13 +138,29 @@ int getOCVtype(sl::MAT_TYPE type) {
 cv::Mat slMat2cvMat(sl::Mat& input) {
     // Since cv::Mat data requires a uchar* pointer, we get the uchar1 pointer from sl::Mat (getPtr<T>())
     // cv::Mat and sl::Mat will share a single memory structure
-    return cv::Mat(input.getHeight(), input.getWidth(), getOCVtype(input.getDataType()), input.getPtr<sl::uchar1>(sl::MEM::CPU), input.getStepBytes(sl::MEM::CPU));
+    return cv::Mat(input.getHeight(), input.getWidth(), getOCVtype(input.getDataType()), 
+            input.getPtr<sl::uchar1>(sl::MEM::CPU), input.getStepBytes(sl::MEM::CPU));
+}
+double movingAverage(std::vector<double>& data, double value,int windowSize = 5) {
+    data.push_back(value);
+    if (data.size() < windowSize) {
+        // Handle the case where there are not enough elements
+        std::cerr << "Error: Not enough elements for window size\n";
+        return data.back();
+    }
+    double sum = 0.0;
+    for (int i = 0; i < windowSize; ++i) {
+        sum += data[i];
+    }
+    data.erase(data.begin());
+    return sum / windowSize;
 }
 
 cv::Mat slMat2cvMatGPU(sl::Mat& input) {
     // Since cv::Mat data requires a uchar* pointer, we get the uchar1 pointer from sl::Mat (getPtr<T>())
     // cv::Mat and sl::Mat will share a single memory structure
-    return cv::Mat(input.getHeight(), input.getWidth(), getOCVtype(input.getDataType()), input.getPtr<sl::uchar1>(sl::MEM::GPU), input.getStepBytes(sl::MEM::GPU));
+    return cv::Mat(input.getHeight(), input.getWidth(), getOCVtype(input.getDataType()), 
+            input.getPtr<sl::uchar1>(sl::MEM::GPU), input.getStepBytes(sl::MEM::GPU));
 }
 float median(std::vector<float> &v)
 {
@@ -155,7 +174,8 @@ float median(std::vector<float> &v)
     }
 }
 
-bool isHandActive(const std::vector<float>& landmarks, sl::Mat& point_cloud,int start_index,int num_hands,int& curr_count, float& multiplier,double& distance){
+bool isHandActive(const std::vector<float>& landmarks, sl::Mat& point_cloud,int start_index,int num_hands,
+                    int& curr_count, float& multiplier,double& distance){
   if (landmarks.size() != NUM_LANDMARKS * 2 * num_hands) {
     std::cerr << "Invalid number of landmarks. Expected " << NUM_LANDMARKS * 2 *num_hands
               << " but got " << landmarks.size() << std::endl;
@@ -237,11 +257,11 @@ void parseArgs(int argc, char **argv, sl::InitParameters& param);
 absl::Status RunMPPGraph(int argc, char** argv) {
   struct shm_remove
    {
-      shm_remove() { boost::interprocess::shared_memory_object::remove("SharedMemory"); }
-      ~shm_remove(){ boost::interprocess::shared_memory_object::remove("SharedMemory"); }
+      shm_remove() { boost::interprocess::shared_memory_object::remove(kSharedMemorySegmentName); }
+      ~shm_remove(){ boost::interprocess::shared_memory_object::remove(kSharedMemorySegmentName); }
    } remover;
     // Create the shared memory segment
-    boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "SharedMemory", 65536);
+    boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, kSharedMemorySegmentName, 65536);
 
     // Create the vector in shared memory
     typedef boost::interprocess::allocator<int, boost::interprocess::managed_shared_memory::segment_manager> ShmemAllocator;
@@ -356,6 +376,11 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     int count_closed_2 = 0;
     double distance_1 = 0.0;
     double distance_2 = 0.0;
+    int count_hand_not_found_1 = 0, count_hand_not_found_2 = 0;
+    double t1, t2, t3, t4;
+    double t5, t6, t7, t8;
+    std::vector<double> hand1_l1, hand1_l2, hand1_l3, hand1_l4;
+    std::vector<double> hand2_l1, hand2_l2, hand2_l3, hand2_l4;
     width = camera_config.resolution.width;
   while (grab_frames) {
     // Main Loop
@@ -459,7 +484,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                     hand_1_active = isHandActive(hand_landmarks,point_cloud,0,2,count_active_1,  multiplier,distance_1);
                     hand_2_closed = isHandClosed(hand_landmarks, 42,2,count_closed_2);
                     hand_2_active = isHandActive(hand_landmarks,point_cloud,42,2,count_active_2,multiplier,distance_2);
-                    std::cout<<hand_1_closed<<" "<<hand_1_active<<" "<<hand_2_closed<<"  "<<hand_2_active<<std::endl;
+                    std::cout<<hand_1_closed<<" "<<hand_1_active<<" "<<hand_2_closed<<"  "<<hand_2_active;
                 }
                 //printf("hand points size = %d.\n", hand_landmarks.size());
                 // Lock the mutex
@@ -468,63 +493,108 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                 myvector->clear();
                 //for (int i = 0; i < 2; i++) {
                 if (hand_landmarks.size()==42){
+                    if (count_hand_not_found_1 == 0 && count_hand_not_found_2 == 0){
+                        hand1_l1.clear(); hand1_l2.clear(); hand1_l3.clear(); hand1_l4.clear();
+                    } 
                     if (distance_1<1000 && distance_1>0){
                         myvector->push_back(1); //num_hands
+                        //HAND 1
                         myvector->push_back(int(hand_1_closed)); //hand 1 closed
                         myvector->push_back(int(hand_1_active)); //hand 1 closed
-                        myvector->push_back(hand_landmarks[16]* SCALE); //pointing finger
-                        myvector->push_back(hand_landmarks[17]* SCALE);
-                        myvector->push_back(hand_landmarks[8]* SCALE); //thumb finger
-                        myvector->push_back(hand_landmarks[9]* SCALE);
+                        t1 = movingAverage(hand1_l1,hand_landmarks[16]* SCALE);
+                        t2 = movingAverage(hand1_l2,hand_landmarks[17]* SCALE);
+                        t3 = movingAverage(hand1_l3,hand_landmarks[8]* SCALE);
+                        t4 = movingAverage(hand1_l4,hand_landmarks[9]* SCALE);
+                        myvector->push_back(t1); //pointing finger
+                        myvector->push_back(t2);
+                        myvector->push_back(t3); //thumb finger
+                        myvector->push_back(t4);
                         condvar->notify_one();
+                        count_hand_not_found_1 = 0;
+                        count_hand_not_found_2 ++;
+                    }
+                    else{
+                        count_hand_not_found_1 ++;
+                        count_hand_not_found_2 ++;
                     }
                 }
                 else if(hand_landmarks.size()==84){
                     if (distance_1<1000 && distance_1>0 && distance_2<1000 && distance_2>0){
                         myvector->push_back(2); //num_hands
                         //HAND 1
-                        myvector->push_back(int(hand_1_closed)); //hand 1 closed
-                        myvector->push_back(int(hand_1_active)); //hand 1 closed
-                        myvector->push_back(hand_landmarks[16]* SCALE); //pointing finger
-                        myvector->push_back(hand_landmarks[17]* SCALE);
-                        myvector->push_back(hand_landmarks[8]* SCALE); //thumb finger
-                        myvector->push_back(hand_landmarks[9]* SCALE);
-
+                        myvector->push_back(int(hand_2_closed)); //hand 2 closed
+                        myvector->push_back(int(hand_2_active)); //hand 1 closed
+                        t5 = movingAverage(hand1_l1,hand_landmarks[58]* SCALE); //pointing finger
+                        t6 = movingAverage(hand1_l2,hand_landmarks[59]* SCALE);
+                        t7 = movingAverage(hand1_l3,hand_landmarks[50]* SCALE); //thumb finger
+                        t8 = movingAverage(hand1_l4,hand_landmarks[51]* SCALE);
+                        myvector->push_back(t5); //pointing finger
+                        myvector->push_back(t6);
+                        myvector->push_back(t7); //thumb finger
+                        myvector->push_back(t8);
                         //HAND 2
-                        myvector->push_back(int(hand_2_closed)); //hand 2 closed
-                        myvector->push_back(int(hand_2_active)); //hand 1 closed
-
-                        myvector->push_back(hand_landmarks[58]* SCALE); //pointing finger
-                        myvector->push_back(hand_landmarks[59]* SCALE);
-                        myvector->push_back(hand_landmarks[50]* SCALE); //thumb finger
-                        myvector->push_back(hand_landmarks[51]* SCALE);
-                        condvar->notify_one();
-                    }
-                    else if (distance_1<1000 && distance_1>0){
-                        myvector->push_back(1); //num_hands
                         myvector->push_back(int(hand_1_closed)); //hand 1 closed
                         myvector->push_back(int(hand_1_active)); //hand 1 closed
-                        myvector->push_back(hand_landmarks[16]* SCALE); //pointing finger
-                        myvector->push_back(hand_landmarks[17]* SCALE);
-                        myvector->push_back(hand_landmarks[8]* SCALE); //thumb finger
-                        myvector->push_back(hand_landmarks[9]* SCALE);
+                        t1 = movingAverage(hand2_l1,hand_landmarks[16]* SCALE);  //pointing finger  
+                        t2 = movingAverage(hand2_l2,hand_landmarks[17]* SCALE);
+                        t3 = movingAverage(hand2_l3,hand_landmarks[8]* SCALE); //thumb finger
+                        t4 = movingAverage(hand2_l4,hand_landmarks[9]* SCALE);
+                        myvector->push_back(t1); //pointing finger
+                        myvector->push_back(t2);
+                        myvector->push_back(t3); //thumb finger
+                        myvector->push_back(t4);
+
                         condvar->notify_one();
+                        count_hand_not_found_1 = 0;
+                        count_hand_not_found_2 = 0;
                     }
-                    else if (distance_2<1000 && distance_2>0){
-                        myvector->push_back(1); //num_hands
-                        myvector->push_back(int(hand_2_closed)); //hand 2 closed
-                        myvector->push_back(int(hand_2_active)); //hand 1 closed
-                        myvector->push_back(hand_landmarks[58]* SCALE); //pointing finger
-                        myvector->push_back(hand_landmarks[59]* SCALE);
-                        myvector->push_back(hand_landmarks[50]* SCALE); //thumb finger
-                        myvector->push_back(hand_landmarks[51]* SCALE);
-                        condvar->notify_one();}
+                    // else if (distance_1<1000 && distance_1>0){
+                    //     myvector->push_back(1); //num_hands
+                    //     myvector->push_back(int(hand_1_closed)); //hand 1 closed
+                    //     myvector->push_back(int(hand_1_active)); //hand 1 closed
+                    //     t1 = movingAverage(hand1_l1,hand_landmarks[16]* SCALE);  //pointing finger  
+                    //     t2 = movingAverage(hand1_l2,hand_landmarks[17]* SCALE);
+                    //     t3 = movingAverage(hand1_l3,hand_landmarks[8]* SCALE); //thumb finger
+                    //     t4 = movingAverage(hand1_l4,hand_landmarks[9]* SCALE);
+                    //     myvector->push_back(t1); //pointing finger
+                    //     myvector->push_back(t2);
+                    //     myvector->push_back(t3); //thumb finger
+                    //     myvector->push_back(t4);
+                    //     condvar->notify_one();
+                    //     count_hand_not_found_1 = 0;
+                    //     count_hand_not_found_2 ++;
+
+                    // }
+                    // else if (distance_2<1000 && distance_2>0){
+                    //     myvector->push_back(1); //num_hands
+                    //     t5 = movingAverage(hand2_l1,hand_landmarks[58]* SCALE); //pointing finger
+                    //     t6 = movingAverage(hand2_l2,hand_landmarks[59]* SCALE);
+                    //     t7 = movingAverage(hand2_l3,hand_landmarks[50]* SCALE); //thumb finger
+                    //     t8 = movingAverage(hand2_l4,hand_landmarks[51]* SCALE);
+                    //     myvector->push_back(t5); //pointing finger
+                    //     myvector->push_back(t6);
+                    //     myvector->push_back(t7); //thumb finger
+                    //     myvector->push_back(t8);
+                    //     condvar->notify_one();
+                    //     count_hand_not_found_2 = 0;
+                    //     count_hand_not_found_1 ++;
+                    // }
                 }
                 // Notify the condition variable
             }
         }
-
-
+        else{
+            count_hand_not_found_1 ++;
+            count_hand_not_found_2 ++;
+        }
+        // Clear the gesture array.
+        if (count_hand_not_found_1>COUNT_NOT_HANDS){
+            hand1_l1.clear(); hand1_l2.clear(); hand1_l3.clear(); hand1_l4.clear();
+        }
+        if (count_hand_not_found_2>COUNT_NOT_HANDS){
+            hand2_l1.clear(); hand2_l2.clear(); hand2_l3.clear(); hand2_l4.clear();
+        }
+        //std::cout<<" "<<count_hand_not_found_1<<" "<<count_hand_not_found_2<<" "<<hand1_l1.size()<<" "<<hand2_l1.size()<<std::endl;
         // Press any key to exit.
         const int pressed_key = cv::waitKey(5);
         if (pressed_key >= 0 && pressed_key != 255) grab_frames = false;
@@ -532,7 +602,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
         delta_ticks = clock() - current_ticks; //the time, in ms, that took to render the scene
         if(delta_ticks > 0)
             fps = CLOCKS_PER_SEC / delta_ticks;
-        //std::cout << "FPS:"<<fps << std::endl;
+        std::cout << "FPS:"<<fps << std::endl;
     }
     //LOG(INFO) << fps;
   }

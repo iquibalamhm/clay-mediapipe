@@ -150,7 +150,7 @@ cc_library(
 
 
 cc_library(
-    name = "main",
+    name = "main_game",
     srcs = ["main.cpp"],
     deps = [
         ":mode",
@@ -232,6 +232,36 @@ cc_library(
         #":GLViewer",
         "@usr_local_zed//:zed",
         "@usr_local_cuda//:my_cuda_library",
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/formats:landmark_cc_proto",
+        "//mediapipe/framework/formats:detection_cc_proto",
+        "//mediapipe/framework/formats:rect_cc_proto",
+        "//mediapipe/framework/port:file_helpers",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_video",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/gpu:gl_calculator_helper",
+        "//mediapipe/gpu:gpu_buffer",
+        "//mediapipe/gpu:gpu_shared_data_internal",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+cc_library(
+    name = "simulation_test",
+    srcs = ["simulation_test.cpp"],
+    deps = [
+        #":GLViewer",
+        "@usr_local_zed//:zed",
+        "@usr_local_cuda//:my_cuda_library",
+
+        "//nest-libs:glm",
+        "//nest-libs:SDL",
 
         "//mediapipe/framework:calculator_framework",
         "//mediapipe/framework/formats:image_frame",
@@ -250,5 +280,18 @@ cc_library(
         "//mediapipe/gpu:gpu_shared_data_internal",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+cc_library(
+    name = "fake_vector",
+    srcs = ["fake_vector.cpp"],
+        deps = [
+        #":GLViewer",
+        "@usr_local_zed//:zed",
+        "@usr_local_cuda//:my_cuda_library",
+
+        "//nest-libs:glm",
+        "//nest-libs:SDL",
     ],
 )

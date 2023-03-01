@@ -40,8 +40,8 @@ struct PlayMode : Mode {
 	struct Particle {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
 		glm::vec2 vel = glm::vec2(0.0f, 0.0f);
-		//uint32_t neighbors_begin = -1U, neighbors_end = -1U; //into neighbors array
 	};
+		//uint32_t neighbors_begin = -1U, neighbors_end = -1U; //into neighbors array
 
 	/*
 	struct Neighbor {
@@ -49,6 +49,7 @@ struct PlayMode : Mode {
 		glm::vec2 offset = glm::vec2(0.0f, 0.0f);
 	};
 	*/
+	const float PARTICLE_MASS = 1.0f;
 
 	std::vector< Particle > particles;
 	//std::vector< Neighbor > neighbors;
@@ -58,6 +59,7 @@ struct PlayMode : Mode {
 		glm::vec2 target = glm::vec2(0.0f, 0.0f);
 		bool active = true;
 	};
+		//glm::vec2 force = glm::vec2(0.0f, 0.0f);
 
 	std::vector< Probe > probes;
 	float probe_rot = 0.0f;
@@ -67,6 +69,7 @@ struct PlayMode : Mode {
 	bool do_hand_movement = false;
 
 	bool rigid = false;
+	bool mod_1 = true;
 	int num_hands = 1;
 	bool hand_1_closed = false;
 	bool hand_2_closed = false;
@@ -107,4 +110,5 @@ struct PlayMode : Mode {
 
 	uint32_t ticks_acc = 0;
 	double duration_acc = 0.0f;
+	
 };
