@@ -56,6 +56,7 @@ int main(int argc, char **argv) {
 	try {
 #endif
 
+
     boost::interprocess::managed_shared_memory segment(boost::interprocess::open_only, "SharedMemory");
 
     // Access the vector in shared memory
@@ -132,7 +133,7 @@ int main(int argc, char **argv) {
 		}
 	}	
 	//Hide mouse cursor (note: showing can be useful for debugging):
-	//SDL_ShowCursor(SDL_DISABLE);
+	SDL_ShowCursor(SDL_DISABLE);
 
 	//------------ load assets --------------
 	call_load_functions();
@@ -156,6 +157,7 @@ int main(int argc, char **argv) {
 		glViewport(0, 0, drawable_size.x, drawable_size.y);
 	};
 	on_resize();
+	Mode::current->init_serial("/dev/ttyACM1");
 
 	//This will loop until the current mode is set to null:
 	bool flag_closed = false;
@@ -166,6 +168,7 @@ int main(int argc, char **argv) {
 		{
 			// Lock the mutex
         	std::unique_lock<Mutex> lock(*mutex);
+			std::cout<<"myvector size: "<<myvector->size()<<std::endl;
 
         	// Check if the data has been modified
         	if (myvector->size() == 0) {
@@ -213,6 +216,7 @@ int main(int argc, char **argv) {
 				if (Mode::current && Mode::current->handle_event(evt, window_size)) {
 					// mode handled it; great
 				} else if (evt.type == SDL_QUIT) {
+					Mode::current->close_serial();
 					Mode::set_current(nullptr);
 					break;
 				} else if (evt.type == SDL_KEYDOWN && evt.key.keysym.sym == SDLK_PRINTSCREEN) {

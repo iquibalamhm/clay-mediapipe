@@ -35,6 +35,9 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		} else if(evt.key.keysym.sym == SDLK_LEFT){
 			do_rotation_left = true;
 		}
+		else if(evt.key.keysym.sym == SDLK_RIGHT){
+			do_rotation_right = true;
+		}
 		else if(evt.key.keysym.sym == SDLK_r){
 			rigid = !rigid;
 		}
@@ -74,6 +77,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			y1 = (*coordinates)[4];
 			x2 = (*coordinates)[5];
 			y2 = (*coordinates)[6];
+			std::cout<<"x1: "<<x1<<"  y1:"<<y1<<"  x2:"<<x2<<"  y2:"<<y2<<std::endl;
 		}
 		else{
 			hand_1_closed = (*coordinates)[1];
@@ -94,7 +98,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			index_2_at.y = 1.0f - 2.0f * (y3 + 0.5f) / float(window_size.y);
 			thumb_2_at.x = -1.0f + 2.0f * (x4 + 0.5f) / float(window_size.x);
 			thumb_2_at.y = 1.0f - 2.0f * (y4 + 0.5f) / float(window_size.y);
-        	//std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< "(" << x3 << ", " << y3 << " " <<x4 << ", " << y4 << ")"<<std::endl;
+        	std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< "(" << x3 << ", " << y3 << " " <<x4 << ", " << y4 << ")"<<std::endl;
 		}
 
         delete coordinates;
@@ -309,7 +313,31 @@ void PlayMode::update(float elapsed) {
 		duration_acc = 0.0;
 	}
 }
-
+void PlayMode::init_serial(std::string port_name){
+	// Open the hardware serial ports.
+	serial_port_name = port_name;
+	if (serial_port_name != "None"){
+		serial_port.Open(port_name);
+		//serial_stream.Open( "/dev/ttyACM1" );
+		// Set the baud rates.
+		serial_port.SetBaudRate( LibSerial::BaudRate::BAUD_115200 );
+		serial_port.Write("i0l");
+		std::string read_byte_1;
+		serial_port.Read(read_byte_1,19);
+		std::cout<<"serial port opened "<<read_byte_1;
+	}
+	//std::cout<<"wrote i1l"<<std::endl;
+}
+void PlayMode::close_serial(){
+	// Close the serial ports
+	if (serial_port_name != "None"){
+		serial_port.Write("i0l");
+		std::string read_byte_1;
+		serial_port.Read(read_byte_1,19);
+		serial_port.Close();
+		std::cout<<"serial port closed "<<read_byte_1;
+	}
+}
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	glClearColor(0.9f, 0.9f, 0.87f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -872,7 +900,7 @@ void PlayMode::tick_clay() {
 		// const float wall_bounce = 0.5f; prev version
 		const float wall_bounce = 0.1f;
 		// const float viscosity_radius = 2.0f * particle_radius;
-		const float viscosity_radius = 25.0f * particle_radius;
+		const float viscosity_radius = 3.0f * particle_radius;
 
 		//particles vs world:
 		for (auto &p : particles) {
@@ -905,9 +933,9 @@ void PlayMode::tick_clay() {
 				}
 			}
 		}
-
 		//particles vs particles (the slow way):
 		float alpha = 0.9f; //controls particle squish
+		touching = false;
 		for (auto &p : particles) {
 			for (auto &p2 : particles) {
 				if (&p == &p2) break;
@@ -926,13 +954,30 @@ void PlayMode::tick_clay() {
 				const float near = particle_radius + probe_radius;
 				const float near2 = near * near;
 				if (len2 > 0.0f && len2 < near2) {
+					touching = true;
 					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
 					p.pos -= 0.5f * step;
 					p2.pos += 0.5f * step;
 				}
 			}
 		}
-
+		if (serial_port_name != "None"){
+			std::string read_byte_1;
+			if(touching != isActive) { 
+				//std::cout<<"toggle"<<std::endl;
+				isActive = touching;
+				/* callback depending on isActive */
+				if (isActive == true) {
+					serial_port.Write("i1l");
+					serial_port.Read(read_byte_1,19);
+					
+				}
+				else {
+					serial_port.Write("i0l");
+					serial_port.Read(read_byte_1,19);
+				}
+			}
+		}
 		//estimate velocity from motion:
 		for (uint32_t i = 0; i < particles.size(); ++i) {
 			auto &p = particles[i];

@@ -5,7 +5,8 @@
 #include <vector>
 #include <deque>
 #include <string>
-
+#include <libserial/SerialPort.h>
+#include <libserial/SerialStream.h>
 struct PlayMode : Mode {
 	PlayMode();
 	virtual ~PlayMode();
@@ -15,9 +16,11 @@ struct PlayMode : Mode {
 	virtual void update(float elapsed) override;
 	virtual void draw(glm::uvec2 const &drawable_size) override;
 	virtual void polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &err,int order);
+	virtual void init_serial(std::string port_name) override;
+	virtual void close_serial() override;
 
 	std::string fitted_text = " x ";
-
+    LibSerial::SerialPort serial_port;
 
 	glm::vec2 mouse_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 	
@@ -50,7 +53,8 @@ struct PlayMode : Mode {
 	};
 	*/
 	const float PARTICLE_MASS = 1.0f;
-
+	bool touching = false;
+	bool isActive = false;
 	std::vector< Particle > particles;
 	//std::vector< Neighbor > neighbors;
 
@@ -67,6 +71,8 @@ struct PlayMode : Mode {
 	bool do_rotation_left = false;
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
+
+	std::string serial_port_name = "None";
 
 	bool rigid = false;
 	bool mod_1 = true;
@@ -106,8 +112,6 @@ struct PlayMode : Mode {
 	uint32_t poly_order = 2;
 	uint32_t fit_step = 10;
 	//ad-hoc performance measurement:
-
-
 	uint32_t ticks_acc = 0;
 	double duration_acc = 0.0f;
 	

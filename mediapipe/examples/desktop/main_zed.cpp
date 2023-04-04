@@ -277,6 +277,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
   CondVar *condvar = segment.construct<CondVar>("CondVar")();
 
 
+
   std::string calculator_graph_config_contents;
 
   MP_RETURN_IF_ERROR(mediapipe::file::GetContents(
@@ -299,7 +300,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
   gpu_helper.InitializeForTest(graph.GetGpuResources().get());
 
   LOG(INFO) << "Initialize the camera or load the video.";
-    std::string arg = std::string(argv[1]);
+    std::string arg = std::string(argv[2]);
   if(arg.find("zed") != std::string::npos){
     # define use_zed
 
@@ -497,6 +498,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                         hand1_l1.clear(); hand1_l2.clear(); hand1_l3.clear(); hand1_l4.clear();
                     } 
                     if (distance_1<1000 && distance_1>0){
+                        std::cout<<"pushing data 1 = "<<distance_1<<std::endl;
                         myvector->push_back(1); //num_hands
                         //HAND 1
                         myvector->push_back(int(hand_1_closed)); //hand 1 closed

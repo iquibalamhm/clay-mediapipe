@@ -80,13 +80,25 @@ cc_binary(
 )
 # Linux game for playing with clay
 cc_binary(
-    name = "game",
+    name = "main_game",
     data = [
         "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
         "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
     ],
     deps = [
         "//mediapipe/examples/desktop:main_game",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+cc_binary(
+    name = "game",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:game",
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )
@@ -169,6 +181,19 @@ cc_binary(
     ],
     deps = [
         "//mediapipe/examples/desktop:fake_vector",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# Fake vector generator
+cc_binary(
+    name = "serial_communication",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:serial_communication",
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )

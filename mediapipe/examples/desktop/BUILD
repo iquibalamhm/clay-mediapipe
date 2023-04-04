@@ -151,6 +151,18 @@ cc_library(
 
 cc_library(
     name = "main_game",
+    srcs = ["main_game.cpp"],
+    deps = [
+        ":mode",
+        "//nest-libs:SDL",
+        "//nest-libs:glm",
+        "//nest-libs:zlib",
+        "//nest-libs:png",
+    ],
+)
+
+cc_library(
+    name = "game",
     srcs = ["main.cpp"],
     deps = [
         ":mode",
@@ -286,6 +298,19 @@ cc_library(
 cc_library(
     name = "fake_vector",
     srcs = ["fake_vector.cpp"],
+        deps = [
+        #":GLViewer",
+        "@usr_local_zed//:zed",
+        "@usr_local_cuda//:my_cuda_library",
+
+        "//nest-libs:glm",
+        "//nest-libs:SDL",
+    ],
+)
+
+cc_library(
+    name = "serial_communication",
+    srcs = ["serial_communication.cpp"],
         deps = [
         #":GLViewer",
         "@usr_local_zed//:zed",

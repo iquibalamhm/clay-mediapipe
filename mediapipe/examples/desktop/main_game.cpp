@@ -16,7 +16,8 @@
 //Includes for libSDL:
 #include <SDL.h>
 #include <mutex>
-
+#include <libserial/SerialPort.h>
+#include <libserial/SerialStream.h>
 //Shared memory
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -70,6 +71,7 @@ int main(int argc, char **argv) {
 	//when compiled on windows, unhandled exceptions don't have their message printed, which can make debugging simple issues difficult.
 	try {
 #endif
+
 	// Check if shared memory object exists
     bool exist = exists();
 	// Access the vector in shared memory
@@ -193,15 +195,26 @@ int main(int argc, char **argv) {
 
 	//This will loop until the current mode is set to null:
 	bool flag_closed = false;
+	std::cout<<"entering while loop"<<std::endl;
+	//parse argument
+	std::string arg = std::string(argv[2]);
+	if (arg.find("/dev/") != std::string::npos){
+		std::cout<<"using "<<arg<<std::endl;
+		Mode::current->init_serial(arg);
+	}
+	else{
+		Mode::current->init_serial("None");
+	}
+
 	while (Mode::current) {
 		//every pass through the game loop creates one frame of output
 		//  by performing three steps:
 		static SDL_Event evt;
-		if(exist){
-			std::cout << "Waiting for data" << std::endl;
+		if (exist){
+			//std::cout << "Waiting for data" << std::endl;
 			// Lock the mutex
 			std::unique_lock<Mutex> lock(*mutex);
-			std::cout << "Waiting for data" << std::endl;
+			//std::cout << "Waiting for data" << std::endl;
 			// Check if the data has been modified
 			if (myvector->size() == 0) {
 				lock.unlock();
@@ -210,7 +223,6 @@ int main(int argc, char **argv) {
 			else{
 				condvar->notify_one();
 				double diff_y = abs((*myvector)[1]-(*myvector)[3]);
-
 				SDL_Event event;
 				event.type = SDL_USEREVENT;
 				std::vector<int>* coordinates = nullptr;
@@ -247,6 +259,7 @@ int main(int argc, char **argv) {
 				if (Mode::current && Mode::current->handle_event(evt, window_size)) {
 					// mode handled it; great
 				} else if (evt.type == SDL_QUIT) {
+					Mode::current->close_serial();
 					Mode::set_current(nullptr);
 					break;
 				} else if (evt.type == SDL_KEYDOWN && evt.key.keysym.sym == SDLK_PRINTSCREEN) {
@@ -289,8 +302,6 @@ int main(int argc, char **argv) {
 		//Wait until the recently-drawn frame is shown before doing it all again:
 		SDL_GL_SwapWindow(window);
 	}
-
-
 	//------------  teardown ------------
 	SDL_GL_DeleteContext(context);
 	context = 0;
