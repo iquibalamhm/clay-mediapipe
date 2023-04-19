@@ -53,6 +53,32 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "hand_tracking_cpu_fps",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:demo_run_graph_main_fps",
+        "//mediapipe/graphs/hand_tracking:desktop_tflite_calculators",
+    ],
+)
+
+# Linux only
+cc_binary(
+    name = "hand_tracking_gpu_fps",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:demo_run_graph_main_gpu_fps",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+
 # Linux only
 cc_binary(
     name = "multi_hand_tracking_landmarks_gpu",
@@ -116,36 +142,6 @@ cc_binary(
     ],
 )
 
-# Linux game for playing with clay
-cc_binary(
-    name = "share_memory",
-    deps = [
-        "//mediapipe/examples/desktop:share_memory",
-    ],
-)
-
-# Linux game for playing with clay
-cc_binary(
-    name = "read_memory",
-    deps = [
-        "//mediapipe/examples/desktop:read_memory",
-    ],
-)
-# Linux game for playing with clay
-cc_binary(
-    name = "read_memory_vector",
-    deps = [
-        "//mediapipe/examples/desktop:read_memory_vector",
-    ],
-)
-# Linux game for playing with clay
-cc_binary(
-    name = "share_memory_vector",
-    deps = [
-        "//mediapipe/examples/desktop:share_memory_vector",
-    ],
-)
-
 # ZED camera depth sensing
 cc_binary(
     name = "zed_depth_sensing",
@@ -197,3 +193,30 @@ cc_binary(
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )
+
+# Fake vector generator
+cc_binary(
+    name = "write_memory",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:write_memory",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# Fake vector generator
+cc_binary(
+    name = "read_memory",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:read_memory",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+

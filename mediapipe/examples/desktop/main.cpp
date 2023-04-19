@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
 		glViewport(0, 0, drawable_size.x, drawable_size.y);
 	};
 	on_resize();
-	Mode::current->init_serial("/dev/ttyACM1");
+	Mode::current->init_serial("None");
 
 	//This will loop until the current mode is set to null:
 	bool flag_closed = false;

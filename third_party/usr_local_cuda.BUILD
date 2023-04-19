@@ -4,12 +4,16 @@ cc_library(
     #srcs = ["my_cuda_file.cu"],
     #hdrs = ["my_cuda_file.h"],
     #copts = ["-Iinclude"],
-    hdrs = glob(["include/**"]),
+    hdrs = glob(["include/**",
+                ]),
+
     srcs = [
         "lib64/libcudart.so",
+        "lib64/libcudart.so.11.0",
     ],
     includes = [
         "include",
+        "lib64",
     ],
     linkopts = [
         "-Llib64",

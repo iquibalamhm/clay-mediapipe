@@ -25,6 +25,8 @@
 #include <boost/interprocess/containers/vector.hpp>
 #include <boost/interprocess/sync/interprocess_condition.hpp>
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
+#include <boost/program_options.hpp>
+
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -80,13 +82,14 @@ int main(int argc, char **argv) {
 	typedef boost::interprocess::interprocess_mutex Mutex;
 	MyVector *myvector;
 	Mutex *mutex;
-
+	boost::interprocess::managed_shared_memory segment;
 	typedef boost::interprocess::interprocess_condition CondVar;
 	CondVar *condvar;
     if (exist) {
         // Open existing shared memory object
 		std::cout << "Configuring shared memory" << std::endl;
-        boost::interprocess::managed_shared_memory segment(boost::interprocess::open_only, kSharedMemorySegmentName);
+		segment = boost::interprocess::managed_shared_memory(boost::interprocess::open_only, kSharedMemorySegmentName);
+
 		//------------  initialization ------------
 		//MyVector *myvector = segment.find<MyVector>("MyVector").first;
 		std::cout << "Configuring vector memory" << std::endl;
@@ -100,14 +103,13 @@ int main(int argc, char **argv) {
 
 		// Access the condition variable in shared memory
 		condvar = segment.find<CondVar>("CondVar").first;
+
     } else {
         // Create new shared memory object
         std::cerr << "Failed to open shared memory segment: " << std::endl;
     }
-
-
 	
-		//------------  initialization ------------
+	//------------  initialization ------------
 	//Initialize SDL library:
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -195,15 +197,36 @@ int main(int argc, char **argv) {
 
 	//This will loop until the current mode is set to null:
 	bool flag_closed = false;
-	std::cout<<"entering while loop"<<std::endl;
-	//parse argument
-	std::string arg = std::string(argv[2]);
-	if (arg.find("/dev/") != std::string::npos){
-		std::cout<<"using "<<arg<<std::endl;
-		Mode::current->init_serial(arg);
-	}
-	else{
-		Mode::current->init_serial("None");
+	//std::cout<<"entering while loop"<<std::endl;
+	//parse arguments
+	{
+		std::string arg_port = std::string(argv[2]);
+		if (arg_port.find("/dev/") != std::string::npos){
+			std::cout<<"using "<<arg_port<<std::endl;
+			Mode::current->init_serial(arg_port);
+		}
+		else{
+			Mode::current->init_serial("None");
+		}
+		std::string str;
+		for (int i = 1; i < argc; i++) {
+			std::string arg = argv[i];
+			if (arg.substr(0, 11) == "--function=") {
+				str = arg.substr(11);
+			}
+		}
+		if (!str.empty()) {
+			//Function options are:
+				// x 
+				// x^2
+				// -3
+			std::cout << "Function to match: " << str << std::endl;
+			Mode::current->init_function(str);
+		} else {
+			std::cout << "No function specified" << std::endl;
+			//if you don't want to show the fitted line, comment this 
+			Mode::current->init_function("None"); 
+		}
 	}
 
 	while (Mode::current) {

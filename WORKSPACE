@@ -562,6 +562,7 @@ new_local_repository(
 # WORKSPACE
 new_local_repository(
   name = "usr_local_cuda",
-  path = "/usr/local/cuda",
+  path = "/usr/local/cuda/",
+  #path = "/usr/local/cuda-11.7/targets/x86_64-linux",
   build_file = "//third_party:usr_local_cuda.BUILD",
 )

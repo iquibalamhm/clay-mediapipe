@@ -79,6 +79,51 @@ cc_library(
 )
 
 cc_library(
+    name = "demo_run_graph_main_fps",
+    srcs = ["demo_run_graph_main_fps.cc"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/port:file_helpers",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_video",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/port:status",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+# Linux only.
+# Must have a GPU with EGL support:
+# ex: sudo apt-get install mesa-common-dev libegl1-mesa-dev libgles2-mesa-dev
+# (or similar nvidia/amd equivalent)
+cc_library(
+    name = "demo_run_graph_main_gpu_fps",
+    srcs = ["demo_run_graph_main_gpu_fps.cc"],
+    deps = [
+        "//mediapipe/framework:calculator_framework",
+        "//mediapipe/framework/formats:image_frame",
+        "//mediapipe/framework/formats:image_frame_opencv",
+        "//mediapipe/framework/port:file_helpers",
+        "//mediapipe/framework/port:opencv_highgui",
+        "//mediapipe/framework/port:opencv_imgproc",
+        "//mediapipe/framework/port:opencv_video",
+        "//mediapipe/framework/port:parse_text_proto",
+        "//mediapipe/framework/port:status",
+        "//mediapipe/gpu:gl_calculator_helper",
+        "//mediapipe/gpu:gpu_buffer",
+        "//mediapipe/gpu:gpu_shared_data_internal",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+
+
+cc_library(
     name = "multi_hand_tracking_landmarks_gpu",
     srcs = ["multi_hand_tracking_landmarks_gpu.cc"],
     deps = [
@@ -107,6 +152,8 @@ cc_library(
     srcs = [
         "Mode.cpp",
         "PlayMode.cpp",
+        "DoneMode.cpp",
+        "MenuMode.cpp",
         "DrawLines.cpp",
         "PathFont.cpp",
         "PathFont-font.cpp",
@@ -121,6 +168,8 @@ cc_library(
     hdrs = [
         "Mode.hpp",
         "PlayMode.hpp",
+        "DoneMode.hpp",
+        "MenuMode.hpp",
         "DrawLines.hpp",
         "PathFont.hpp",
         "ColorProgram.hpp",
@@ -202,15 +251,15 @@ cc_library(
     ],
 )
 cc_library(
-    name = "share_memory",
-    srcs = ["sharing_memory.cpp"],
+    name = "write_memory",
+    srcs = ["writing_memory_vector.cpp"],
     hdrs = [
         "doc_anonymous_semaphore_shared_data.hpp"
     ],
 )
 cc_library(
     name = "read_memory",
-    srcs = ["reading_memory.cpp"],
+    srcs = ["reading_memory_vector.cpp"],
     hdrs = [
         "doc_anonymous_semaphore_shared_data.hpp"
     ],

@@ -41,7 +41,7 @@ int main ()
       data->nstored.wait();
       data->mutex.wait();
       extracted_data[i] = data->items[i % shared_memory_buffer::NumItems];
-        std::cout<< extracted_data[i]<<" ";
+      std::cout<< extracted_data[i]<<" ";
       data->mutex.post();
       data->nempty.post();
    }

@@ -7,6 +7,8 @@
 #include <string>
 #include <libserial/SerialPort.h>
 #include <libserial/SerialStream.h>
+#include <chrono>
+
 struct PlayMode : Mode {
 	PlayMode();
 	virtual ~PlayMode();
@@ -15,11 +17,22 @@ struct PlayMode : Mode {
 	virtual bool handle_event(SDL_Event const &, glm::uvec2 const &window_size) override;
 	virtual void update(float elapsed) override;
 	virtual void draw(glm::uvec2 const &drawable_size) override;
-	virtual void polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &err,int order);
 	virtual void init_serial(std::string port_name) override;
 	virtual void close_serial() override;
+	virtual void init_function(std::string function) override;
+	
+	bool areVectorsApproximatelyEqual(const std::vector<double>& v1, const std::vector<double>& v2, double tolerance);
+	void polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &err,int order);
 
-	std::string fitted_text = " x ";
+	std::string serial_port_name = "None";
+	struct function{
+		std::string name;
+		std::vector<double> coeff;
+		uint8_t order;
+	};
+	function to_match;
+	function fitted;
+
     LibSerial::SerialPort serial_port;
 
 	glm::vec2 mouse_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
@@ -40,6 +53,7 @@ struct PlayMode : Mode {
 										0.0f, 0.0f, 0.0f, 1.0f);
 
 	float time_acc = 0.0f;
+
 	struct Particle {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
 		glm::vec2 vel = glm::vec2(0.0f, 0.0f);
@@ -72,7 +86,6 @@ struct PlayMode : Mode {
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
 
-	std::string serial_port_name = "None";
 
 	bool rigid = false;
 	bool mod_1 = true;
@@ -81,7 +94,6 @@ struct PlayMode : Mode {
 	bool hand_2_closed = false;
 	bool hand_1_active = false;
 	bool hand_2_active = false;
-
 
     // Calculate the center of mass and moment of inertia
     double cx = 0.0;
@@ -107,12 +119,12 @@ struct PlayMode : Mode {
 	void reset_clay();
 	inline static constexpr float ClayTick = 0.001f;
 	void tick_clay();
-	std::vector<double> coeff  = {0.0f,1.0f};
-	uint32_t parabola_step = 10;
-	uint32_t poly_order = 2;
+	uint32_t parabola_step = 15;
 	uint32_t fit_step = 10;
 	//ad-hoc performance measurement:
 	uint32_t ticks_acc = 0;
+	uint32_t ticks_acc_filter = 0;
+	std::chrono::_V2::system_clock::time_point start_time;
 	double duration_acc = 0.0f;
 	
 };

@@ -1,5 +1,5 @@
 #include "PlayMode.hpp"
-
+#include "DoneMode.hpp"
 #include "DrawLines.hpp"
 #include "gl_errors.hpp"
 #include "data_path.hpp"
@@ -41,6 +41,11 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		else if(evt.key.keysym.sym == SDLK_r){
 			rigid = !rigid;
 		}
+		else if(evt.key.keysym.sym == SDLK_d){
+			auto final_time = std::chrono::high_resolution_clock::now();
+			auto done_time = std::chrono::duration< double >(final_time - start_time).count();
+			Mode::set_current(std::make_shared<DoneMode>(done_time));
+		}
 	} else if (evt.type == SDL_KEYUP) {
 		if(evt.key.keysym.sym == SDLK_LEFT){
 			do_rotation_left = false;
@@ -77,7 +82,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			y1 = (*coordinates)[4];
 			x2 = (*coordinates)[5];
 			y2 = (*coordinates)[6];
-			std::cout<<"x1: "<<x1<<"  y1:"<<y1<<"  x2:"<<x2<<"  y2:"<<y2<<std::endl;
+			//std::cout<<"x1: "<<x1<<"  y1:"<<y1<<"  x2:"<<x2<<"  y2:"<<y2<<std::endl;
 		}
 		else{
 			hand_1_closed = (*coordinates)[1];
@@ -98,7 +103,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			index_2_at.y = 1.0f - 2.0f * (y3 + 0.5f) / float(window_size.y);
 			thumb_2_at.x = -1.0f + 2.0f * (x4 + 0.5f) / float(window_size.x);
 			thumb_2_at.y = 1.0f - 2.0f * (y4 + 0.5f) / float(window_size.y);
-        	std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< "(" << x3 << ", " << y3 << " " <<x4 << ", " << y4 << ")"<<std::endl;
+        	//std::cout << "Coordinates: (" << x1 << ", " << y1 << " " <<x2 << ", " << y2 << ")"<< "(" << x3 << ", " << y3 << " " <<x4 << ", " << y4 << ")"<<std::endl;
 		}
 
         delete coordinates;
@@ -304,6 +309,7 @@ void PlayMode::update(float elapsed) {
 	}
 	auto after = std::chrono::high_resolution_clock::now();
 	ticks_acc += ticks;
+	ticks_acc_filter += ticks;
 	duration_acc += std::chrono::duration< double >(after - before).count();
 
 	if (ticks_acc > 5.0f / ClayTick) {
@@ -316,6 +322,7 @@ void PlayMode::update(float elapsed) {
 void PlayMode::init_serial(std::string port_name){
 	// Open the hardware serial ports.
 	serial_port_name = port_name;
+
 	if (serial_port_name != "None"){
 		serial_port.Open(port_name);
 		//serial_stream.Open( "/dev/ttyACM1" );
@@ -323,17 +330,66 @@ void PlayMode::init_serial(std::string port_name){
 		serial_port.SetBaudRate( LibSerial::BaudRate::BAUD_115200 );
 		serial_port.Write("i0l");
 		std::string read_byte_1;
-		serial_port.Read(read_byte_1,19);
-		std::cout<<"serial port opened "<<read_byte_1;
+		//serial_port.Read(read_byte_1,19);
+		std::cout<<"serial port opened "<<port_name<<std::endl;
 	}
-	//std::cout<<"wrote i1l"<<std::endl;
+}
+
+void PlayMode::init_function(std::string function_name){
+	// Open the hardware serial ports.
+	//function_to_match = function_name;
+	to_match.name = function_name;
+	if (function_name == "-3"){
+		to_match.order = 1;
+		glm::vec2 start = glm::vec2(0.0f, box_max.y/4);
+		glm::vec2 end = glm::vec2(1.5f, box_max.y/4);
+		double A = (end.y-start.y)/(end.x-start.x);
+		double B = end.y- A*end.x;
+		std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
+		to_match.coeff = {B,A};
+	}
+	else if (function_name == "x^2"){
+		to_match.order = 2;
+		// Three points to pass through.
+		glm::vec2 start = glm::vec2(0.0f, 1.0f);
+		glm::vec2 middle = glm::vec2(0.75f, 0.5f);
+		glm::vec2 end = glm::vec2(1.5f, 1.0f);
+		// Compute the coefficients of the parabola that passes through these points.
+		double denom = (start.x - middle.x) * (start.x - end.x) * (middle.x - end.x);
+		double A     = (end.x * (middle.y - start.y) + middle.x * (start.y - end.y) + start.x * (end.y - middle.y)) / denom;
+		double B     = (end.x*end.x * (start.y - middle.y) + middle.x*middle.x * (end.y - start.y) + start.x*start.x * (middle.y - end.y)) / denom;
+		double C     = (middle.x * end.x * (middle.x - end.x) * start.y + end.x * start.x * (end.x - start.x) * middle.y + start.x * middle.x * (start.x - middle.x) * end.y) / denom;
+		std::cout << "Coefficients: {" << A << ", " << B << ", " << C << "}" << std::endl;
+		to_match.coeff = {C,B,A};
+	}
+	else if (function_name == "x"){
+		to_match.order = 1;
+		glm::vec2 start = glm::vec2(0.0f, 0.0f);
+		glm::vec2 end = glm::vec2(1.5f, 1.0f);
+		double A = (end.y-start.y)/(end.x-start.x);
+		double B = end.y- A*end.x;
+		std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
+		to_match.coeff = {B,A};
+	}
+}
+
+bool PlayMode::areVectorsApproximatelyEqual(const std::vector<double>& v1, const std::vector<double>& v2, double tolerance) {
+    if (v1.size() != v2.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < v1.size(); ++i) {
+        if (std::abs(v1[i] - v2[i]) > tolerance) {
+            return false;
+        }
+    }
+    return true;
 }
 void PlayMode::close_serial(){
 	// Close the serial ports
 	if (serial_port_name != "None"){
 		serial_port.Write("i0l");
 		std::string read_byte_1;
-		serial_port.Read(read_byte_1,19);
+		//serial_port.Read(read_byte_1,19);
 		serial_port.Close();
 		std::cout<<"serial port closed "<<read_byte_1;
 	}
@@ -402,56 +458,125 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 			ys.push_back(p.pos[1]);
 		}
 		if (ticks_acc % fit_step == 0){
-			// std::cout<<" ran 100 ticks"<<std::endl;
-			//Fit line and compute error
-			float err_1,err_2;
-			std::vector<double> coeff_1,coeff_2;
-			//boost::thread t(polyfit(xs, ys, coeff_1, err_1,1));
-			boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
-    		
-			//Fit parabola and compute error
-			//polyfit(xs, ys, coeff_2, err_2,2);
-			boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
-    		t1.join();
-			t2.join();
-			//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
-			std::string curr_fitted_text ="";
-			if(err_1-1 < err_2){
-				poly_order = 1;
-				coeff = coeff_1;
-				curr_fitted_text.append(std::to_string(coeff[1]));
-				curr_fitted_text.append(" x + ");
-				curr_fitted_text.append(std::to_string(coeff[0]));
-				fitted_text = curr_fitted_text;
+			if (to_match.name != "None"){
+				if (to_match.order ==1){
+					//Fit line and compute error
+					float err_1;
+					std::vector<double> coeff_1;
+					//boost::thread t(polyfit(xs, ys, coeff_1, err_1,1));
+					boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
+					t1.join();
+					//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
+					std::string curr_fitted_text ="";
+					fitted.order = 1;
+					if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.01) == false){
+						fitted.coeff = coeff_1;
+						curr_fitted_text.append(std::to_string(fitted.coeff[1]));
+						curr_fitted_text.append(" x + ");
+						curr_fitted_text.append(std::to_string(fitted.coeff[0]));
+						fitted.name = curr_fitted_text;
+					}
+				}
+				else if (to_match.order ==2){
+					//Fit line and compute error
+					float err_2;
+					std::vector<double> coeff_2;
+					//Fit parabola and compute error
+					boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
+					t2.join();
+					std::string curr_fitted_text ="";
+					fitted.order = 2;
+					if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.01) == false){
+						fitted.coeff = coeff_2;
+						curr_fitted_text.append(std::to_string(fitted.coeff[2]));
+						curr_fitted_text.append(" x^2 + ");
+						curr_fitted_text.append(std::to_string(fitted.coeff[1]));
+						curr_fitted_text.append(" x + ");
+						curr_fitted_text.append(std::to_string(fitted.coeff[0]));
+						fitted.name = curr_fitted_text;
+					}
+					
+				}
 			}
 			else{
-				poly_order = 2;
-				coeff = coeff_2;
-				curr_fitted_text.append(std::to_string(coeff[2]));
-				curr_fitted_text.append(" x^2 + ");
-				curr_fitted_text.append(std::to_string(coeff[1]));
-				curr_fitted_text.append(" x + ");
-				curr_fitted_text.append(std::to_string(coeff[0]));
-				fitted_text = curr_fitted_text;
+				//Fit line and compute error
+				float err_1,err_2;
+				std::vector<double> coeff_1,coeff_2;
+				boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
+				
+				//Fit parabola and compute error
+				boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
+				t1.join();
+				t2.join();
+				//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
+				std::string curr_fitted_text ="";
+				if(err_1-1 < err_2){
+					fitted.order = 1;
+					if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.01) == false){
+						fitted.coeff = coeff_1;
+						curr_fitted_text.append(std::to_string(fitted.coeff[1]));
+						curr_fitted_text.append(" x + ");
+						curr_fitted_text.append(std::to_string(fitted.coeff[0]));
+						fitted.name = curr_fitted_text;
+					}
+				}
+				else{
+					fitted.order = 2;
+					if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.01) == false){
+						fitted.coeff = coeff_2;
+						curr_fitted_text.append(std::to_string(fitted.coeff[2]));
+						curr_fitted_text.append(" x^2 + ");
+						curr_fitted_text.append(std::to_string(fitted.coeff[1]));
+						curr_fitted_text.append(" x + ");
+						curr_fitted_text.append(std::to_string(fitted.coeff[0]));
+						fitted.name = curr_fitted_text;
+					}
+				}
 			}
 		}
-		lines.draw_text(fitted_text,
+		lines.draw_text(fitted.name,
 			glm::vec3(0.9f, 0.1f, 0.0f),
 			glm::vec3(0.05f, 0.0f, 0.0f),
 			glm::vec3(0.0f, 0.05f, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-		//fitted line:
-
-		if (poly_order == 1){
-			lines.draw(glm::vec3(axis_min.x, (axis_min.x)*coeff[1] + coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*coeff[1] + coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
-		}
-		else if (poly_order == 2){
-			float step = (axis_max.x - axis_min.x) / parabola_step;
-			for (uint32_t a = 0; a < parabola_step; ++a){
-				lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*coeff[2]+ (axis_min.x+a*step)*coeff[1] + coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*coeff[2] + (axis_min.x+(a+1)*step)*coeff[1]+coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
+		//Function to match
+		if (to_match.name != "None"){
+			if (to_match.order == 1){
+				lines.draw(glm::vec3(axis_min.x, (axis_min.x)*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
+				lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
+				if (areVectorsApproximatelyEqual(to_match.coeff,fitted.coeff,0.02) == true){
+					std::cout<<"Matched!"<<std::endl;
+					auto final_time = std::chrono::high_resolution_clock::now();
+					auto done_time = std::chrono::duration< double >(final_time - start_time).count();
+					Mode::set_current(std::make_shared<DoneMode>(done_time));
+				}
+			}
+			else if (to_match.order == 2){
+				float step = (axis_max.x - axis_min.x) / parabola_step;
+				for (uint32_t a = 0; a < parabola_step; ++a){
+					lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*to_match.coeff[2]+ (axis_min.x+a*step)*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*to_match.coeff[2] + (axis_min.x+(a+1)*step)*to_match.coeff[1]+to_match.coeff[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
+					lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*fitted.coeff[2]+ (axis_min.x+a*step)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*fitted.coeff[2] + (axis_min.x+(a+1)*step)*fitted.coeff[1]+fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
+				}
+				if (areVectorsApproximatelyEqual(to_match.coeff,fitted.coeff,0.027) == true){
+					std::cout<<"Matched!"<<std::endl;
+					auto final_time = std::chrono::high_resolution_clock::now();
+					auto done_time = std::chrono::duration< double >(final_time - start_time).count();
+					Mode::set_current(std::make_shared<DoneMode>(done_time));
+				}
 			}
 		}
-
+		else{
+			//Fitted line:
+			if (fitted.order == 1){
+				lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
+			}
+			else if (fitted.order == 2){
+				float step = (axis_max.x - axis_min.x) / parabola_step;
+				for (uint32_t a = 0; a < parabola_step; ++a){
+					lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*fitted.coeff[2]+ (axis_min.x+a*step)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*fitted.coeff[2] + (axis_min.x+(a+1)*step)*fitted.coeff[1]+fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
+				}
+			}
+		}
 		//probes:
 		for (auto const &p : probes) {
 			if (p.active==1) {
@@ -485,7 +610,7 @@ void PlayMode::reset_clay() {
 			particles.emplace_back(p);
 		}
 	}
-
+	start_time = std::chrono::high_resolution_clock::now();
 	probe_rot = 0.0f; //Set the rotation back to zero:
 }
 
@@ -936,6 +1061,7 @@ void PlayMode::tick_clay() {
 		//particles vs particles (the slow way):
 		float alpha = 0.9f; //controls particle squish
 		touching = false;
+		float dist = 0.0f;
 		for (auto &p : particles) {
 			for (auto &p2 : particles) {
 				if (&p == &p2) break;
@@ -954,30 +1080,81 @@ void PlayMode::tick_clay() {
 				const float near = particle_radius + probe_radius;
 				const float near2 = near * near;
 				if (len2 > 0.0f && len2 < near2) {
-					touching = true;
 					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
 					p.pos -= 0.5f * step;
 					p2.pos += 0.5f * step;
+					//dist = glm::length2(probes[0].pos-probes[1].pos);
+					//touching = true;
+				}
+				if (len2 > 0.0f && (abs(len2-near2)<0.002)) {
+					touching = true;
 				}
 			}
 		}
+		std::stringstream stream;
+		stream << std::fixed << std::setprecision(0) << dist*10000;
+		std::string s = stream.str();
+		//std::cout<<"s "<<s<<std::endl;
+		//Count the continous number of no touchs
+		const int cycleThreshold = 5;
+		bool filter  = false;
 		if (serial_port_name != "None"){
 			std::string read_byte_1;
 			if(touching != isActive) { 
-				//std::cout<<"toggle"<<std::endl;
+				std::string str;
+				std::cout<<"toggle"<<std::endl;
 				isActive = touching;
-				/* callback depending on isActive */
-				if (isActive == true) {
-					serial_port.Write("i1l");
-					serial_port.Read(read_byte_1,19);
-					
+				if (filter==false){
+					if (touching) {
+						std::cout << "Writing Signal is true!" << std::endl;
+						// Reset the cycle count if the signal is true
+						ticks_acc_filter = 0;
+						str.append("i1l");
+						serial_port.Write(str);
+					} else {
+						// Increment the cycle count if the signal is false
+						//ticks_acc++;
+						// Check the cycle count against the threshold value
+						
+							std::cout << "Writing Signal is false." << std::endl;
+							str.append("i0l");
+							serial_port.Write(str);
+					}
 				}
 				else {
-					serial_port.Write("i0l");
-					serial_port.Read(read_byte_1,19);
+					if (touching) {
+						std::cout << "Writing Signal is true!" << std::endl;
+						// Reset the cycle count if the signal is true
+						ticks_acc_filter = 0;
+						str.append("i1l");
+						serial_port.Write(str);
+					} else {
+						// Increment the cycle count if the signal is false
+						//ticks_acc++;
+						// Check the cycle count against the threshold value
+						if (ticks_acc_filter <= cycleThreshold) {
+							std::cout << "Writing Assuming signal is true." << std::endl;
+							// Reset the cycle count if the threshold is reached
+							ticks_acc_filter = 0;
+							str.append("i1l");
+							serial_port.Write(str);
+
+						}else{
+							std::cout << "Writing Signal is false." << std::endl;
+							str.append("i0l");
+							serial_port.Write(str);
+						}
+					}
 				}
 			}
+			// if(ticks_acc_filter>1000 && touching == false){
+			// 	ticks_acc_filter = 0;
+			// 	std::cout << "Timeout Writing Signal is false." << std::endl;
+			// 	serial_port.Write("i0l");
+			// 	//std::cout<<"reset"<<std::endl;
+			// }
 		}
+	
 		//estimate velocity from motion:
 		for (uint32_t i = 0; i < particles.size(); ++i) {
 			auto &p = particles[i];
