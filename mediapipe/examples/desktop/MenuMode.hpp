@@ -1,8 +1,11 @@
 #include "Mode.hpp"
+#include "Sprite.hpp"
 
 #include <glm/glm.hpp>
 
 #include <vector>
+#include <functional>
+
 #include <deque>
 #include <string>
 #include <libserial/SerialPort.h>
@@ -20,6 +23,7 @@ struct MenuMode : Mode {
 	virtual void close_serial() override;
 	virtual void init_function(std::string function) override;
 	
+
 	std::string serial_port_name = "None";
 	struct function{
 		std::string name;
@@ -51,6 +55,13 @@ struct MenuMode : Mode {
 	glm::vec2 axis_min = glm::vec2(0.1f, 0.1f);
 	glm::vec2 axis_max = glm::vec2(1.4f, 0.9f);
 
+	glm::vec2 button_f1_min = glm::vec2(0.0f, 0.0f);
+	glm::vec2 button_f1_max = glm::vec2(1.5f, 1.0f);
+
+	glm::vec2 button_f2_min = glm::vec2(0.0f, 0.0f);
+	glm::vec2 button_f2_max = glm::vec2(1.5f, 1.0f);
+
+
 	void reset_clay();
 	inline static constexpr float ClayTick = 0.001f;
 	void tick_clay();
@@ -58,7 +69,25 @@ struct MenuMode : Mode {
 	//ad-hoc performance measurement:
 	uint32_t ticks_acc = 0;
 	uint32_t ticks_acc_filter = 0;
-
+	std::shared_ptr< Mode > background;
+	uint32_t selected = 0;
+	//Each menu item is an "Item":
+	struct Item {
+		Item(
+			std::string const &name_,
+			Sprite const *sprite_ = nullptr,
+			float scale_ = 1.0f,
+			std::function< void(Item const &) > const &on_select_ = nullptr,
+			glm::vec2 const &at_ = glm::vec2(0.0f)
+			) : name(name_), sprite(sprite_), scale(scale_), on_select(on_select_), at(at_) {
+		}
+		std::string name;
+		Sprite const *sprite; //sprite drawn for item
+		float scale; //scale for sprite
+		std::function< void(Item const &) > on_select; //if set, item is selectable
+		glm::vec2 at; //location to draw item
+	};
+	std::vector< Item > items;
 	
 	double duration_acc = 0.0f;
 	

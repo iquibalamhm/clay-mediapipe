@@ -18,8 +18,9 @@
 #include <eigen3/Eigen/QR>
 #include <boost/thread.hpp>
 
-DoneMode::DoneMode(float elapsed_time) {
+DoneMode::DoneMode(float elapsed_time,float error) {
 	this->ELAPSED_TIME = elapsed_time;
+	this->ERROR = error;
 	reset_clay();
 }
 
@@ -147,11 +148,20 @@ void DoneMode::draw(glm::uvec2 const &drawable_size) {
 		}();
 		std::string print_message;
 		//std::to_string(ELAPSED_TIME);
-		print_message.append("Matched in ");
-		print_message.append(std::to_string(ELAPSED_TIME));
+		print_message.append("Elapsed time ");
+		print_message.append(std::to_string(int(ELAPSED_TIME)));
 		print_message.append(" seconds");
 		lines.draw_text(print_message,
 			glm::vec3(0.1f, 0.5f, 0.0f),
+			glm::vec3(0.10f, 0.0f, 0.0f),
+			glm::vec3(0.0f, 0.10f, 0.0f),
+			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+		
+		std::string print_message_error;
+		print_message_error.append("L2_norm error ");
+		print_message_error.append(std::to_string(ERROR));
+		lines.draw_text(print_message_error,
+			glm::vec3(0.1f, 0.3f, 0.0f),
 			glm::vec3(0.10f, 0.0f, 0.0f),
 			glm::vec3(0.0f, 0.10f, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));

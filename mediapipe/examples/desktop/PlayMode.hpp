@@ -20,14 +20,16 @@ struct PlayMode : Mode {
 	virtual void init_serial(std::string port_name) override;
 	virtual void close_serial() override;
 	virtual void init_function(std::string function) override;
-	
+	virtual void reset_motor();
+
 	bool areVectorsApproximatelyEqual(const std::vector<double>& v1, const std::vector<double>& v2, double tolerance);
-	void polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &err,int order);
+	void polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &err,uint8_t order);
 
 	std::string serial_port_name = "None";
 	struct function{
 		std::string name;
 		std::vector<double> coeff;
+		std::vector<double> coeff_offset;
 		uint8_t order;
 	};
 	function to_match;
@@ -66,11 +68,14 @@ struct PlayMode : Mode {
 		glm::vec2 offset = glm::vec2(0.0f, 0.0f);
 	};
 	*/
+	bool interaction = false;
 	const float PARTICLE_MASS = 1.0f;
 	bool touching = false;
 	bool isActive = false;
 	std::vector< Particle > particles;
 	//std::vector< Neighbor > neighbors;
+	
+	const bool filter_signal  = false;
 
 	struct Probe {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
@@ -78,7 +83,6 @@ struct PlayMode : Mode {
 		bool active = true;
 	};
 		//glm::vec2 force = glm::vec2(0.0f, 0.0f);
-
 	std::vector< Probe > probes;
 	float probe_rot = 0.0f;
 	float probe_pinch = 0.0f;
@@ -86,7 +90,8 @@ struct PlayMode : Mode {
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
 
-
+	float err_1 = 0.0f;
+	float err_2 =0.0f;
 	bool rigid = false;
 	bool mod_1 = true;
 	int num_hands = 1;
@@ -106,7 +111,7 @@ struct PlayMode : Mode {
 	double I = 0.0;
 
 	//float particle_radius = 0.01f;
-	float particle_radius = 0.007f;
+	float particle_radius = 0.008f;
 	float probe_radius = 0.08f;
 	//float neighbor_radius = 0.2f;
 
@@ -117,8 +122,15 @@ struct PlayMode : Mode {
 	glm::vec2 axis_max = glm::vec2(1.4f, 0.9f);
 
 	void reset_clay();
-	inline static constexpr float ClayTick = 0.001f;
 	void tick_clay();
+
+	const float viscosity_radius = 4.0f * particle_radius;
+	const float wall_bounce = 0.01f;
+	// const float alpha = 0.9f; //controls particle squish
+	const float alpha = 0.99f; //controls particle squish
+
+	inline static constexpr float ClayTick = 0.001f;
+	
 	uint32_t parabola_step = 15;
 	uint32_t fit_step = 10;
 	//ad-hoc performance measurement:
@@ -126,5 +138,8 @@ struct PlayMode : Mode {
 	uint32_t ticks_acc_filter = 0;
 	std::chrono::_V2::system_clock::time_point start_time;
 	double duration_acc = 0.0f;
-	
+	bool show_function_name = false;
+	bool show_function_line = false;
+	bool time_fixed = true;
+	inline static constexpr float TIME_LIMIT = 60.0f; //given in seconds
 };

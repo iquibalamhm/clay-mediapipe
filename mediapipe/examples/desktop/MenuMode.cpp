@@ -30,6 +30,30 @@ bool MenuMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	if (evt.type == SDL_KEYDOWN) {
 		if (evt.key.keysym.sym == SDLK_BACKSPACE) {
 			reset_clay();
+			
+		} else if (evt.key.keysym.sym == SDLK_UP) {
+			//skip non-selectable items:
+			for (uint32_t i = selected - 1; i < items.size(); --i) {
+				if (items[i].on_select) {
+					selected = i;
+					break;
+				}
+			}
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_DOWN) {
+			//note: skips non-selectable items:
+			for (uint32_t i = selected + 1; i < items.size(); ++i) {
+				if (items[i].on_select) {
+					selected = i;
+					break;
+				}
+			}
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_RETURN) {
+			if (selected < items.size() && items[selected].on_select) {
+				items[selected].on_select(items[selected]);
+				return true;
+			}
 		} else if (evt.key.keysym.sym == SDLK_SPACE) {
 
 		} else if(evt.key.keysym.sym == SDLK_LEFT){
@@ -44,11 +68,12 @@ bool MenuMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	} else if (evt.type == SDL_MOUSEBUTTONDOWN) {
 		if (evt.button.button == SDL_BUTTON_LEFT) {
 			//std::cout<<"do_pinch"<<std::endl;
-			do_pinch = true;
+			//do_pinch = true;
+
 		}
 	} else if (evt.type == SDL_MOUSEBUTTONUP) {
 		if (evt.button.button == SDL_BUTTON_LEFT) {
-			do_pinch = false;
+			//do_pinch = false;
 		}
 	} else if (evt.type == SDL_MOUSEWHEEL) {
 	} else if (evt.type == SDL_MOUSEMOTION) {
@@ -60,7 +85,11 @@ bool MenuMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	} else if (evt.type == SDL_USEREVENT){
 		std::vector<int>* coordinates = static_cast<std::vector<int>*>(evt.user.data1);
 	}
-
+	if (background) {
+		return background->handle_event(evt, window_size);
+	} else {
+		return false;
+	}
 	return false;
 }
 
@@ -107,9 +136,19 @@ void MenuMode::close_serial(){
 	}
 }
 void MenuMode::draw(glm::uvec2 const &drawable_size) {
-	glClearColor(0.9f, 0.9f, 0.87f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glDisable(GL_DEPTH_TEST);
+
+	if (background) {
+		std::shared_ptr< Mode > hold_me = shared_from_this();
+		background->draw(drawable_size);
+		//it is an error to remove the last reference to this object in background->draw():
+		assert(hold_me.use_count() > 1);
+	} else {
+		glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
+	// glClearColor(0.9f, 0.9f, 0.87f, 1.0f);
+	// glClear(GL_COLOR_BUFFER_BIT);
+	// glDisable(GL_DEPTH_TEST);
 
 	const float aspect = drawable_size.x / float(drawable_size.y);
 	//std::cout<< drawable_size.x<<" "<<float(drawable_size.y)<<std::endl;
@@ -129,10 +168,6 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 	{
 		DrawLines lines(world_to_clip);
 
-		//boundary:
-		lines.draw(glm::vec3(box_min.x, box_min.y, 0.0f), glm::vec3(box_max.x, box_min.y, 0.0f), glm::u8vec4(0xff, 0x88, 0x88, 0xff));
-		lines.draw(glm::vec3(box_max.x, box_min.y, 0.0f), glm::vec3(box_max.x, box_max.y, 0.0f), glm::u8vec4(0xff, 0x88, 0x88, 0xff));
-		lines.draw(glm::vec3(box_max.x, box_max.y, 0.0f), glm::vec3(box_min.x, box_max.y, 0.0f), glm::u8vec4(0xff, 0x88, 0x88, 0xff));
 		lines.draw(glm::vec3(box_min.x, box_max.y, 0.0f), glm::vec3(box_min.x, box_min.y, 0.0f), glm::u8vec4(0xff, 0x88, 0x88, 0xff));
 
 		//from 15-466-f22-base6:
@@ -146,9 +181,7 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 		}();
 		std::string print_message;
 		//std::to_string(ELAPSED_TIME);
-		print_message.append("Matched in ");
-		print_message.append(std::to_string(ELAPSED_TIME));
-		print_message.append(" seconds");
+		print_message.append("Menu ");
 		lines.draw_text(print_message,
 			glm::vec3(0.1f, 0.5f, 0.0f),
 			glm::vec3(0.10f, 0.0f, 0.0f),
@@ -156,17 +189,7 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		//Function to match:
 		
+		
 	}
 	GL_ERRORS();
 }
-
-void MenuMode::reset_clay() {
-}
-
-void MenuMode::tick_clay() {
-	const float kTimeStep = 0.01f;
-    const float kElasticity = 0.9f;
-    const float kFriction = 0.5f;
-	
-}
-

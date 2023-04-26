@@ -9,7 +9,8 @@
 #include <libserial/SerialStream.h>
 struct DoneMode : Mode {
 	float ELAPSED_TIME;
-	DoneMode(float elapsed_time);
+	float ERROR;
+	DoneMode(float elapsed_time,float error);
 	virtual ~DoneMode();
 
 	//functions called by main loop:

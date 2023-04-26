@@ -4,6 +4,10 @@
 //The 'PlayMode' mode plays the game:
 #include "PlayMode.hpp"
 
+//The 'MenuMode' mode plays the game:
+#include "MenuMode.hpp"
+
+
 //For asset loading:
 #include "Load.hpp"
 
@@ -176,6 +180,7 @@ int main(int argc, char **argv) {
 	call_load_functions();
 
 	//------------ create game mode + make current --------------
+	//Mode::set_current(std::make_shared< MenuMode >());
 	Mode::set_current(std::make_shared< PlayMode >());
 
 	//------------ main loop ------------
@@ -200,7 +205,7 @@ int main(int argc, char **argv) {
 	//std::cout<<"entering while loop"<<std::endl;
 	//parse arguments
 	{
-		std::string arg_port = std::string(argv[2]);
+		std::string arg_port = std::string(argv[1]);
 		if (arg_port.find("/dev/") != std::string::npos){
 			std::cout<<"using "<<arg_port<<std::endl;
 			Mode::current->init_serial(arg_port);

@@ -157,6 +157,32 @@ cc_binary(
 
 # ZED camera depth sensing
 cc_binary(
+    name = "zed_depth_color",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:zed_depth_color",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# ZED camera depth sensing
+cc_binary(
+    name = "zed_depth_color_calibration",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:zed_depth_color_calibration",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
+
+# ZED camera depth sensing
+cc_binary(
     name = "simulation_test",
     data = [
         "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
@@ -220,3 +246,15 @@ cc_binary(
     ],
 )
 
+# Fake vector generator
+cc_binary(
+    name = "color_trackbar",
+    data = [
+        "//mediapipe/modules/hand_landmark:hand_landmark_full.tflite",
+        "//mediapipe/modules/palm_detection:palm_detection_full.tflite",
+    ],
+    deps = [
+        "//mediapipe/examples/desktop:color_trackbar",
+        "//mediapipe/graphs/hand_tracking:mobile_calculators",
+    ],
+)
