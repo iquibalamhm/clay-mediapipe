@@ -148,7 +148,7 @@ void DoneMode::draw(glm::uvec2 const &drawable_size) {
 		}();
 		std::string print_message;
 		//std::to_string(ELAPSED_TIME);
-		print_message.append("Elapsed time ");
+		print_message.append("Elapsed time");
 		print_message.append(std::to_string(int(ELAPSED_TIME)));
 		print_message.append(" seconds");
 		lines.draw_text(print_message,

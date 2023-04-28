@@ -323,7 +323,6 @@ int main(int argc, char **argv) {
 		}
 
 		{ //(3) call the current mode's "draw" function to produce output:
-		
 			Mode::current->draw(drawable_size);
 		}
 

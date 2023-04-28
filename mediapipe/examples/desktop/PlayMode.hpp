@@ -25,6 +25,9 @@ struct PlayMode : Mode {
 	bool areVectorsApproximatelyEqual(const std::vector<double>& v1, const std::vector<double>& v2, double tolerance);
 	void polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &err,uint8_t order);
 
+	//called to create menu for current scene:
+	void enter_scene(float elapsed);
+
 	std::string serial_port_name = "None";
 	struct function{
 		std::string name;
@@ -36,6 +39,14 @@ struct PlayMode : Mode {
 	function fitted;
 
     LibSerial::SerialPort serial_port;
+	
+	enum {
+		mainmenu,
+		website,
+		credit,
+		gamescene,
+		donemode
+	} location = mainmenu;
 
 	glm::vec2 mouse_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 	
@@ -74,7 +85,7 @@ struct PlayMode : Mode {
 	bool isActive = false;
 	std::vector< Particle > particles;
 	//std::vector< Neighbor > neighbors;
-	
+
 	const bool filter_signal  = false;
 
 	struct Probe {
@@ -123,7 +134,7 @@ struct PlayMode : Mode {
 
 	void reset_clay();
 	void tick_clay();
-
+	double final_error = -1.0;
 	const float viscosity_radius = 4.0f * particle_radius;
 	const float wall_bounce = 0.01f;
 	// const float alpha = 0.9f; //controls particle squish
@@ -131,6 +142,10 @@ struct PlayMode : Mode {
 
 	inline static constexpr float ClayTick = 0.001f;
 	
+
+	glm::vec2 view_min = glm::vec2(0,0);
+	glm::vec2 view_max = glm::vec2(1024, 768);
+
 	uint32_t parabola_step = 15;
 	uint32_t fit_step = 10;
 	//ad-hoc performance measurement:
@@ -141,5 +156,5 @@ struct PlayMode : Mode {
 	bool show_function_name = false;
 	bool show_function_line = false;
 	bool time_fixed = true;
-	inline static constexpr float TIME_LIMIT = 60.0f; //given in seconds
+	inline static constexpr float TIME_LIMIT = 5.0f; //given in seconds
 };

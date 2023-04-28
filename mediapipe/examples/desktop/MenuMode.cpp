@@ -3,7 +3,7 @@
 #include "DrawLines.hpp"
 #include "gl_errors.hpp"
 #include "data_path.hpp"
-
+#include "DrawSprites.hpp"
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/norm.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -18,8 +18,15 @@
 #include <eigen3/Eigen/QR>
 #include <boost/thread.hpp>
 
-MenuMode::MenuMode() {
-	reset_clay();
+MenuMode::MenuMode(std::vector< Item > const &items_) : items(items_) {
+
+	//select first item which can be selected:
+	for (uint32_t i = 0; i < items.size(); ++i) {
+		if (items[i].on_select) {
+			selected = i;
+			break;
+		}
+	}
 }
 
 MenuMode::~MenuMode() {
@@ -29,7 +36,6 @@ bool MenuMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 	if (evt.type == SDL_KEYDOWN) {
 		if (evt.key.keysym.sym == SDLK_BACKSPACE) {
-			reset_clay();
 			
 		} else if (evt.key.keysym.sym == SDLK_UP) {
 			//skip non-selectable items:
@@ -143,7 +149,7 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 		//it is an error to remove the last reference to this object in background->draw():
 		assert(hold_me.use_count() > 1);
 	} else {
-		glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+		glClearColor(0.9f, 0.9f, 0.87f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
 	// glClearColor(0.9f, 0.9f, 0.87f, 1.0f);
@@ -165,31 +171,65 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 		offset.x * scale / aspect, offset.y * scale, 0.0f, 1.0f
 	);
 
-	{
-		DrawLines lines(world_to_clip);
+	// {
+	DrawLines lines(world_to_clip);
 
-		lines.draw(glm::vec3(box_min.x, box_max.y, 0.0f), glm::vec3(box_min.x, box_min.y, 0.0f), glm::u8vec4(0xff, 0x88, 0x88, 0xff));
 
-		//from 15-466-f22-base6:
-		static std::array< glm::vec2, 16 > const circle = [](){
-			std::array< glm::vec2, 16 > ret;
-			for (uint32_t a = 0; a < ret.size(); ++a) {
-				float ang = a / float(ret.size()) * 2.0f * float(M_PI);
-				ret[a] = glm::vec2(std::cos(ang), std::sin(ang));
+	// 	//from 15-466-f22-base6:
+	// 	static std::array< glm::vec2, 16 > const circle = [](){
+	// 		std::array< glm::vec2, 16 > ret;
+	// 		for (uint32_t a = 0; a < ret.size(); ++a) {
+	// 			float ang = a / float(ret.size()) * 2.0f * float(M_PI);
+	// 			ret[a] = glm::vec2(std::cos(ang), std::sin(ang));
+	// 		}
+	// 		return ret;
+	// 	}();
+	// 	std::string print_message;
+	// 	//std::to_string(ELAPSED_TIME);
+	// 	print_message.append("Menu ");
+	// 	lines.draw_text(print_message,
+	// 		glm::vec3(0.1f, 0.5f, 0.0f),
+	// 		glm::vec3(0.10f, 0.0f, 0.0f),
+	// 		glm::vec3(0.0f, 0.10f, 0.0f),
+	// 		glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+	// 	//Function to match:
+
+	// }
+	//std::cout<<"draw MenuMode: "<<std::endl;
+	{ //draw the menu using DrawSprites:
+		assert(atlas && "it is an error to try to draw a menu without an atlas");
+
+		for (auto const &item : items) {
+			bool is_selected = (&item == &items[0] + selected);
+			glm::u8vec4 color = (is_selected ? glm::u8vec4(0xff, 0x00, 0xff, 0xff) : glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+			float left, right;
+			if (!item.sprite) {
+				//draw item.name as text:
+				lines.draw_text(
+					item.name, 	
+					glm::vec3(item.at.x, item.at.y, 0.0f),
+					glm::vec3(0.10f, 0.0f, 0.0f),
+					glm::vec3(0.0f, 0.10f, 0.0f),
+	 				color
+				);
+				//std::cout<<color.x<<" "<<color.y<<" "<<color.z<<" "<<color.w<<std::endl;
+				glm::vec2 min,max;
+				left = min.x;
+				right = max.x;
 			}
-			return ret;
-		}();
-		std::string print_message;
-		//std::to_string(ELAPSED_TIME);
-		print_message.append("Menu ");
-		lines.draw_text(print_message,
-			glm::vec3(0.1f, 0.5f, 0.0f),
-			glm::vec3(0.10f, 0.0f, 0.0f),
-			glm::vec3(0.0f, 0.10f, 0.0f),
-			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-		//Function to match:
-		
-		
-	}
+			if (is_selected) {
+				// if (left_select) {
+				// 	draw_sprites.draw(*left_select, glm::vec2(left, item.at.y), item.scale);
+				// }
+				// if (right_select) {
+				// 	draw_sprites.draw(*right_select, glm::vec2(right, item.at.y), item.scale);
+				// }
+				// std::cout<<"selected: "<<std::endl;
+			}
+			
+		}
+
+	} //<-- gets drawn here!
+
 	GL_ERRORS();
 }

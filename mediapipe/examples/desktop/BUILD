@@ -155,6 +155,8 @@ cc_library(
         "DoneMode.cpp",
         "MenuMode.cpp",
         "DrawLines.cpp",
+        "Sprite.cpp",
+        "DrawSprites.cpp",
         "PathFont.cpp",
         "PathFont-font.cpp",
         "ColorProgram.cpp",
@@ -163,7 +165,9 @@ cc_library(
         "gl_compile_program.cpp",
         "load_save_png.cpp",
         "data_path.cpp",
-        "LitColorTextureProgram.cpp"
+        "LitColorTextureProgram.cpp",
+        "ColorTextureProgram.cpp"
+
     ],
     hdrs = [
         "Mode.hpp",
@@ -172,15 +176,18 @@ cc_library(
         "DoneMode.hpp",
         "MenuMode.hpp",
         "DrawLines.hpp",
+        "DrawSprites.hpp",
         "PathFont.hpp",
         "ColorProgram.hpp",
         "GL.hpp",
         "Load.hpp",
         "gl_compile_program.hpp",
+        "read_write_chunk.hpp",
         "gl_errors.hpp",
         "load_save_png.hpp",
         "data_path.hpp",
-        "LitColorTextureProgram.hpp"
+        "LitColorTextureProgram.hpp",
+        "ColorTextureProgram.hpp"
     ],
     deps = [
         "//nest-libs:SDL",

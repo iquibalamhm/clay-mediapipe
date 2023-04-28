@@ -12,7 +12,8 @@
 #include <libserial/SerialStream.h>
 struct MenuMode : Mode {
 	float ELAPSED_TIME;
-	MenuMode();
+	struct Item;
+	MenuMode(std::vector< Item > const &items);
 	virtual ~MenuMode();
 
 	//functions called by main loop:
@@ -69,8 +70,7 @@ struct MenuMode : Mode {
 	//ad-hoc performance measurement:
 	uint32_t ticks_acc = 0;
 	uint32_t ticks_acc_filter = 0;
-	std::shared_ptr< Mode > background;
-	uint32_t selected = 0;
+
 	//Each menu item is an "Item":
 	struct Item {
 		Item(
@@ -88,7 +88,27 @@ struct MenuMode : Mode {
 		glm::vec2 at; //location to draw item
 	};
 	std::vector< Item > items;
-	
+		//if set, used to highlight the current selection:
+	Sprite const *left_select = nullptr;
+	Sprite const *right_select = nullptr;
+
+	//must be set to the atlas from which all the sprites used herein are taken:
+	SpriteAtlas const *atlas = nullptr;
+
+	//currently selected item:
+	uint32_t selected = 0;
+
+	//area to display; by default, menu lays items out in the [-1,1]^2 box:
+	glm::uvec2 view_min = glm::vec2(-1.0f, -1.0f);
+	glm::uvec2 view_max = glm::vec2( 1.0f,  1.0f);
+
 	double duration_acc = 0.0f;
 	
+	//if not nullptr, background's functions are called as follows:
+	// background->handle_event() is called at the end of handle_event() [if this doesn't handle the event]
+	// background->update() is called at the end of update()
+	// background->draw() is called at the start of draw()
+	//IMPORTANT NOTE: this means that if background->draw() ends up deleting this (e.g., by removing
+	//  the last shared_ptr that references it), then it will crash. Don't do that!
+	std::shared_ptr< Mode > background;
 };

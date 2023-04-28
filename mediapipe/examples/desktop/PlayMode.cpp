@@ -2,7 +2,9 @@
 #include "DoneMode.hpp"
 #include "DrawLines.hpp"
 #include "gl_errors.hpp"
+#include "MenuMode.hpp"
 #include "data_path.hpp"
+#include "Sprite.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/norm.hpp>
@@ -17,6 +19,7 @@
 #include <vector>
 #include <eigen3/Eigen/QR>
 #include <boost/thread.hpp>
+
 
 PlayMode::PlayMode() {
 	reset_clay();
@@ -44,9 +47,9 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			rigid = !rigid;
 		}
 		else if(evt.key.keysym.sym == SDLK_d){
-			auto final_time = std::chrono::high_resolution_clock::now();
-			auto done_time = std::chrono::duration< double >(final_time - start_time).count();
-			Mode::set_current(std::make_shared<DoneMode>(done_time,err_1));
+			location = donemode;
+			Mode::current = shared_from_this();
+			//Mode::set_current(std::make_shared<DoneMode>(done_time,err_1));
 		}
 	} else if (evt.type == SDL_KEYUP) {
 		if(evt.key.keysym.sym == SDLK_LEFT){
@@ -178,10 +181,113 @@ void PlayMode::polyfit(const std::vector<double> &x, const std::vector<double> &
 	l2_error =  get_error_from_l2norm(coeff,order,err,x,y);
 	//l2_error = l2_norm(err);
 }
+void PlayMode::enter_scene(float elapsed) {
 
+    //////////////////////////////////////////////////  menu staff   /////////////////////////////////////////////////////////////
+    if(location!=gamescene){
+        std::vector< MenuMode::Item > items;
+        glm::vec2 at(0.1f, 0.5f);
+        auto add_text = [&items,&at](std::string text) {
+            items.emplace_back(text, nullptr, 0.1f, nullptr, at);
+            at.y -= 0.1f;
+        };
+        auto add_text2 = [&items,&at](std::string text) {
+            items.emplace_back(text, nullptr, 0.1f, nullptr, at);
+            at.y -= 0.12f;
+        };
+
+        auto add_choice = [&items,&at](std::string text, std::function< void(MenuMode::Item const &) > const &fn) {
+            items.emplace_back(text, nullptr, 0.1f, fn, at + glm::vec2(0.1f, 0.0f));
+            at.y -= 0.15f;
+        };
+
+        if (location == mainmenu) {
+            at=glm::vec2(0.300f, 0.90f);
+            add_text("WELCOME   TO   MATHCLAY");
+            add_text(" ");
+            at.y -= 0.01; //gap before choices
+            add_choice("TRAINING MODE !", [this](MenuMode::Item const &){
+                location = gamescene;
+                Mode::current = shared_from_this();
+				Mode::current->init_function("None");
+ 				reset_clay();
+            });
+			add_choice("Y = -3", [this](MenuMode::Item const &){
+                location = gamescene;
+                Mode::current = shared_from_this();
+				Mode::current->init_function("-3");
+				reset_clay();
+
+            });
+			add_choice("Y = x", [this](MenuMode::Item const &){
+                location = gamescene;
+                Mode::current = shared_from_this();
+				Mode::current->init_function("x");
+				reset_clay();
+            });
+			add_choice("Y = x^2", [this](MenuMode::Item const &){
+                location = gamescene;
+                Mode::current = shared_from_this();
+				Mode::current->init_function("x^2");
+				reset_clay();
+            });
+            // add_choice("CREDIT", [this](MenuMode::Item const &){
+            //     location = credit;
+            //     Mode::current = shared_from_this();
+            // });
+
+        } else if (location == credit) {
+            at=glm::vec2(0.300f, 0.9f);
+            add_text("MUSIC:");
+            add_text2("FREEPD.COM    AND   FREESOUND.ORG");
+            add_text(" ");
+            add_text("IMAGE   ASSET:");
+            add_text2("ALL   ICON");
+            add_text(" ");
+            add_text("FONT:");
+            add_text2("SOURCEFORGE.NET   RODS-CUSTOM-FONT-XCF-FILES");
+            add_text(" ");
+            add_choice("BACK TO MAIN MENU", [this](MenuMode::Item const &){
+                location = mainmenu;
+                Mode::current = shared_from_this();
+            });
+        }
+		else if(location = donemode){
+            at=glm::vec2(0.300f, 0.9f);
+			auto final_time = std::chrono::high_resolution_clock::now();
+			auto done_time = std::chrono::duration< double >(final_time - start_time).count();
+			std::string print_message;
+			print_message.append("Elapsed time ");
+			print_message.append(std::to_string(int(done_time)));
+			print_message.append(" seconds");
+			add_text(print_message);
+            add_text(" ");
+			std::string print_message_error;
+			print_message_error.append("L2_norm error ");
+			print_message_error.append(std::to_string(final_error));
+            add_text(print_message_error);
+			add_text(" ");
+            add_choice("BACK TO MAIN MENU", [this](MenuMode::Item const &){
+                location = mainmenu;
+                Mode::current = shared_from_this();
+            });
+		}
+        std::shared_ptr< MenuMode > menu = std::make_shared< MenuMode >(items);
+        menu->left_select = sprite_left_select;
+        menu->right_select = sprite_right_select;
+        menu->view_min = view_min;
+        menu->view_max = view_max;
+        menu->background = shared_from_this();
+        Mode::current = menu;
+	}
+}
 void PlayMode::update(float elapsed) {
 	time_acc += elapsed;
-
+	if (Mode::current.get() == this) {
+			//there is no menu displayed! Make one:
+			enter_scene(elapsed);
+	}
+	
 	auto before = std::chrono::high_resolution_clock::now();
 	uint32_t ticks = 0;
 	while (time_acc > 0.0f) {
@@ -352,6 +458,7 @@ void PlayMode::update(float elapsed) {
 		duration_acc = 0.0;
 	}
 }
+
 void PlayMode::init_serial(std::string port_name){
 	// Open the hardware serial ports.
 	serial_port_name = port_name;
@@ -372,42 +479,44 @@ void PlayMode::init_function(std::string function_name){
 	// Open the hardware serial ports.
 	//function_to_match = function_name;
 	to_match.name = function_name;
-	if (function_name == "-3"){
-		to_match.order = 1;
-		glm::vec2 start = glm::vec2(0.0f, box_max.y/4);
-		glm::vec2 end = glm::vec2(1.5f, box_max.y/4);
-		double A = (end.y-start.y)/(end.x-start.x);
-		double B = end.y- A*end.x;
-		std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
-		to_match.coeff = {B+0.07,A};
-		to_match.coeff_offset = {B-0.07,A}; 
-	}
-	else if (function_name == "x^2"){
-		to_match.order = 2;
-		// Three points to pass through.
-		glm::vec2 start = glm::vec2(0.0f, 1.0f);
-		glm::vec2 middle = glm::vec2(0.75f, 0.5f);
-		glm::vec2 end = glm::vec2(1.5f, 1.0f);
-		// Compute the coefficients of the parabola that passes through these points.
-		double denom = (start.x - middle.x) * (start.x - end.x) * (middle.x - end.x);
-		double A     = (end.x * (middle.y - start.y) + middle.x * (start.y - end.y) + start.x * (end.y - middle.y)) / denom;
-		double B     = (end.x*end.x * (start.y - middle.y) + middle.x*middle.x * (end.y - start.y) + start.x*start.x * (middle.y - end.y)) / denom;
-		double C     = (middle.x * end.x * (middle.x - end.x) * start.y + end.x * start.x * (end.x - start.x) * middle.y + start.x * middle.x * (start.x - middle.x) * end.y) / denom;
-		std::cout << "Coefficients: {" << A << ", " << B << ", " << C << "}" << std::endl;
-		to_match.coeff = {C,B,A}; //ax^2+bx+c returning in the opposite order
-		to_match.coeff_offset = {C+0.17,B,A}; //ax^2+bx+c returning in the opposite order
+	if (to_match.name!= "None"){
+		if (function_name == "-3"){
+			to_match.order = 1;
+			glm::vec2 start = glm::vec2(0.0f, box_max.y/4);
+			glm::vec2 end = glm::vec2(1.5f, box_max.y/4);
+			double A = (end.y-start.y)/(end.x-start.x);
+			double B = end.y- A*end.x;
+			std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
+			to_match.coeff = {B+0.07,A};
+			to_match.coeff_offset = {B-0.07,A}; 
+		}
+		else if (function_name == "x^2"){
+			to_match.order = 2;
+			// Three points to pass through.
+			glm::vec2 start = glm::vec2(0.0f, 1.0f);
+			glm::vec2 middle = glm::vec2(0.75f, 0.5f);
+			glm::vec2 end = glm::vec2(1.5f, 1.0f);
+			// Compute the coefficients of the parabola that passes through these points.
+			double denom = (start.x - middle.x) * (start.x - end.x) * (middle.x - end.x);
+			double A     = (end.x * (middle.y - start.y) + middle.x * (start.y - end.y) + start.x * (end.y - middle.y)) / denom;
+			double B     = (end.x*end.x * (start.y - middle.y) + middle.x*middle.x * (end.y - start.y) + start.x*start.x * (middle.y - end.y)) / denom;
+			double C     = (middle.x * end.x * (middle.x - end.x) * start.y + end.x * start.x * (end.x - start.x) * middle.y + start.x * middle.x * (start.x - middle.x) * end.y) / denom;
+			std::cout << "Coefficients: {" << A << ", " << B << ", " << C << "}" << std::endl;
+			to_match.coeff = {C,B,A}; //ax^2+bx+c returning in the opposite order
+			to_match.coeff_offset = {C+0.17,B,A}; //ax^2+bx+c returning in the opposite order
 
-	}
-	else if (function_name == "x"){
-		to_match.order = 1;
-		glm::vec2 start = glm::vec2(0.0f, 0.0f);
-		glm::vec2 end = glm::vec2(1.5f, 1.0f);
-		double A = (end.y-start.y)/(end.x-start.x);
-		double B = end.y- A*end.x;
-		std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
-		to_match.coeff = {B+0.1,A};
-		to_match.coeff_offset = {B-0.1,A};
-
+		}
+		else if (function_name == "x"){
+			to_match.order = 1;
+			glm::vec2 start = glm::vec2(0.0f, 0.0f);
+			glm::vec2 end = glm::vec2(1.5f, 1.0f);
+			double A = (end.y-start.y)/(end.x-start.x);
+			double B = end.y- A*end.x;
+			std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
+			to_match.coeff = {B+0.1,A};
+			to_match.coeff_offset = {B-0.1,A};
+		}
+		time_fixed = true;
 	}
 }
 
@@ -436,10 +545,6 @@ void PlayMode::reset_motor(){
 	// Close the serial ports
 	if (serial_port_name != "None"){
 		serial_port.Write("i0l");
-		//std::string read_byte_1;
-		//serial_port.Read(read_byte_1,19);
-		//serial_port.Close();
-		//std::cout<<"serial port closed "<<read_byte_1;
 	}
 }
 
@@ -447,7 +552,12 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	glClearColor(0.9f, 0.9f, 0.87f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
-
+	//std::cout<<" draw PlayMode"<<std::endl;
+	
+	if(location!=gamescene) {
+		//draw.draw(*sprite_menubackground, glm::vec2(0,0));
+		return;
+	}
 	const float aspect = drawable_size.x / float(drawable_size.y);
 	//std::cout<< drawable_size.x<<" "<<float(drawable_size.y)<<std::endl;
 	const float scale = std::min(1.5f * aspect / (box_max.x - box_min.x + 0.1f), 1.5f / (box_max.y - box_min.y + 0.1f));
@@ -604,9 +714,9 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 						//std::cout<<"Time's up!"<<final_error<<std::endl;
 						std::vector<double> err;
 						std::vector<double> curr_coef = {(to_match.coeff[0]+to_match.coeff_offset[0])/2,to_match.coeff[1]};
-						float final_error = get_error_from_l2norm(curr_coef,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
-						std::cout<<final_error<<std::endl;
-						Mode::set_current(std::make_shared<DoneMode>(curr_time,final_error));
+						final_error = get_error_from_l2norm(curr_coef,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
+						location = donemode;
+						//Mode::set_current(std::make_shared<DoneMode>(curr_time,final_error));
 					}
 				}
 				else if (areVectorsApproximatelyEqual(to_match.coeff,fitted.coeff,0.02) == true){
@@ -631,9 +741,9 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					if (curr_time > TIME_LIMIT){
 						std::vector<double> err;
 						std::vector<double> curr_coef = {(to_match.coeff[0]+to_match.coeff_offset[0])/2,to_match.coeff[1],to_match.coeff[2]};
-						float final_error = get_error_from_l2norm(curr_coef,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
-						std::cout<<final_error<<std::endl;
-						Mode::set_current(std::make_shared<DoneMode>(curr_time,final_error));
+						final_error = get_error_from_l2norm(curr_coef,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
+						location = donemode;
+						//Mode::set_current(std::make_shared<DoneMode>(curr_time,final_error));
 					}
 				}
 				if (areVectorsApproximatelyEqual(to_match.coeff,fitted.coeff,0.027) == true){
