@@ -258,3 +258,11 @@ cc_binary(
         "//mediapipe/graphs/hand_tracking:mobile_calculators",
     ],
 )
+
+# Test file vector generator
+cc_binary(
+    name = "file_generator",
+    deps = [
+        "//mediapipe/examples/desktop:file_generator",
+    ],
+)

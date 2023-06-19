@@ -71,6 +71,27 @@ void DrawLines::draw(glm::vec3 const &a, glm::vec3 const &b, glm::u8vec4 const &
 	attribs.emplace_back(b, color);
 }
 
+void DrawLines::draw_bold(glm::vec3 const& a, glm::vec3 const& b, glm::u8vec4 const& color,float const& thickness) {
+    // const float thickness = 0.0005f; // Adjust the thickness as needed
+    // Calculate the direction vector of the line
+    glm::vec3 direction = b - a;
+    glm::vec3 perpendicular = glm::normalize(glm::vec3(-direction.y, direction.x, 0.0f));
+    
+    // Calculate the offset vectors for the thicker line
+    glm::vec3 offset1 = thickness * perpendicular;
+    glm::vec3 offset2 = -thickness * perpendicular;
+    
+    // Draw the thicker line by adding additional points
+    attribs.emplace_back(a + offset1, color);
+    attribs.emplace_back(b + offset1, color);
+    attribs.emplace_back(a + offset2, color);
+    attribs.emplace_back(b + offset2, color);
+    
+    // Draw the original line
+    attribs.emplace_back(a, color);
+    attribs.emplace_back(b, color);
+}
+
 void DrawLines::draw_box(glm::mat4x3 const &mat, glm::u8vec4 const &color) {
 	//draw cube as three edge sets:
 

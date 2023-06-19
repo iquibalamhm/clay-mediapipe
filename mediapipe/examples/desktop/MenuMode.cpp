@@ -193,7 +193,6 @@ void MenuMode::draw(glm::uvec2 const &drawable_size) {
 	// 		glm::vec3(0.0f, 0.10f, 0.0f),
 	// 		glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 	// 	//Function to match:
-
 	// }
 	//std::cout<<"draw MenuMode: "<<std::endl;
 	{ //draw the menu using DrawSprites:

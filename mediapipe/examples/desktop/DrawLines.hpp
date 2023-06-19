@@ -21,6 +21,9 @@ struct DrawLines {
 	//draw a single line from a to b (in world space):
 	void draw(glm::vec3 const &a, glm::vec3 const &b, glm::u8vec4 const &color = glm::u8vec4(0xff));
 
+	//draw a bold single line from a to b (in world space):
+	void draw_bold(glm::vec3 const &a, glm::vec3 const &b, glm::u8vec4 const &color = glm::u8vec4(0xff),float const &thickness = 0.0005f);
+
 	//draw a wireframe box corresponding to the [-1,1]^3 cube transformed by mat:
 	void draw_box(glm::mat4x3 const &mat, glm::u8vec4 const &color = glm::u8vec4(0xff));
 

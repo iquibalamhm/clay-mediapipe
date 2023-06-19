@@ -459,3 +459,16 @@ cc_library(
         "//nest-libs:SDL",
     ],
 )
+
+cc_library(
+    name = "file_generator",
+    srcs = ["file_generation.cpp"],
+        deps = [
+        #":GLViewer",
+        "@usr_local_zed//:zed",
+        "@usr_local_cuda//:my_cuda_library",
+
+        "//nest-libs:glm",
+        "//nest-libs:SDL",
+    ],
+)

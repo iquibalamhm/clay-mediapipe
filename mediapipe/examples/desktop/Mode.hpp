@@ -27,5 +27,6 @@ struct Mode : std::enable_shared_from_this< Mode > {
 	virtual void init_serial(std::string port_name){};
 	virtual void close_serial(){};
 	virtual void init_function(std::string function){};
+	virtual void init_file(std::string file_name){};
 };
 

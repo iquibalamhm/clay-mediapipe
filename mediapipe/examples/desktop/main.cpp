@@ -37,6 +37,15 @@
 #include <memory>
 #include <algorithm>
 
+//File management
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <ctime>
+#include <iomanip>
+#include <cstdlib>
+#include <random>
+
 #ifdef _WIN32
 extern "C" { uint32_t GetACP(); }
 #endif
@@ -160,6 +169,7 @@ int main(int argc, char **argv) {
 	Mode::current->init_serial("None");
 
 	//This will loop until the current mode is set to null:
+	
 	bool flag_closed = false;
 	while (Mode::current) {
 		//every pass through the game loop creates one frame of output
