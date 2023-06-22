@@ -272,30 +272,26 @@ int main(int argc, char **argv)
 			{
 				Mode::current->init_serial("None");
 			}
-			std::string str;
-			for (int i = 1; i < argc; i++)
-			{
-				std::string arg = argv[i];
-				if (arg.substr(0, 11) == "--function=")
-				{
-					str = arg.substr(11);
-				}
-			}
-			if (!str.empty())
-			{
-				// Function options are:
-				//  x
-				//  x^2
-				//  -3
-				std::cout << "Function to match: " << str << std::endl;
-				Mode::current->init_function(str);
-			}
-			else
-			{
-				std::cout << "No function specified" << std::endl;
-				// if you don't want to show the fitted line, comment this
-				Mode::current->init_function("None");
-			}
+			// std::string str;
+			// for (int i = 1; i < argc; i++)
+			// {
+			// 	std::string arg = argv[i];
+			// 	if (arg.substr(0, 11) == "--function=")
+			// 	{
+			// 		str = arg.substr(11);
+			// 	}
+			// }
+			// if (!str.empty())
+			// {
+			// 	std::cout << "Function to match: " << str << std::endl;
+			// 	Mode::current->init_function(str);
+			// }
+			// else
+			// {
+			// 	std::cout << "No function specified" << std::endl;
+			// 	// if you don't want to show the fitted line, comment this
+			// 	Mode::current->init_function("None");
+			// }
 		}
 
 		while (Mode::current)

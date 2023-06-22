@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <random>
 
+#include <algorithm>
 PlayMode::PlayMode() {
 	reset_clay();
 }
@@ -268,30 +269,108 @@ void PlayMode::enter_scene(float elapsed) {
             //add_text(" ");
 			at.y -= 0.01; //gap before choices
 
-            add_choice("TRAINING MODE !", [this](MenuMode::Item const &){
-                location = gamescene;
+            add_choice("EXPERIMENT 1!", [this](MenuMode::Item const &){
+                location = scenes_mode;
+				scene = experimental_1;
+				time_fixed = false;
+				state = inside;
+				show_to_match_line = false;
                 Mode::current = shared_from_this();
-				Mode::current->init_function("None");
- 				reset_clay();
+				std::vector<std::string> function_names = {
+					"None"
+				};
+				to_match.name = "None";
+				current_order = scene_order(function_names);
+				parse_function(current_order.functions[0]);				
+				reset_clay();
+
+                // location = gamescene;
+                // Mode::current = shared_from_this();
+				// Mode::current->init_function("None");
+ 				// reset_clay();
+            });
+			add_choice("EXPERIMENT 2!", [this](MenuMode::Item const &){
+                location = scenes_mode;
+				scene = experimental_2;
+				time_fixed = false;
+				state = inside;
+				show_to_match_line = false;
+                Mode::current = shared_from_this();
+				std::vector<std::string> function_names = {
+					"None"
+				};
+				to_match.name = "None";
+				current_order = scene_order(function_names);
+				parse_function(current_order.functions[0]);				
+				reset_clay();
+
+                // location = gamescene;
+                // Mode::current = shared_from_this();
+				// Mode::current->init_function("None");
+ 				// reset_clay();
             });
 			add_choice("Y = -3", [this](MenuMode::Item const &){
-                location = gamescene;
+				location = scenes_mode;
+				scene = custum_function;
+				time_fixed = true;
+				state = begin;
+				show_to_match_line = true;
+
+				std::vector<std::vector<double>> function_coeffs = {
+					{0.0,0.0,-3.0}, //y = ax^2 + bx + c
+				};
+				current_order = scene_order(function_coeffs);
+				parse_function(current_order.functions[0]);
                 Mode::current = shared_from_this();
-				Mode::current->init_function("-3");
 				reset_clay();
+				//matching_start_time = std::chrono::high_resolution_clock::now();
+
+				// De aqui a abajo es lo que se hace en init_function
+                // location = gamescene;
+                // Mode::current = shared_from_this();
+				// Mode::current->init_function("-3");
+				// reset_clay();
 
             });
 			add_choice("Y = x", [this](MenuMode::Item const &){
-                location = gamescene;
+				location = scenes_mode;
+				scene = custum_function;
+				time_fixed = true;
+				state = begin;
+				show_to_match_line = true;
+
+				std::vector<std::vector<double>> function_coeffs = {
+					{0.0,1.0,0.0}, //y = ax^2 + bx + c
+				};
+				current_order = scene_order(function_coeffs);
+				parse_function(current_order.functions[0]);
                 Mode::current = shared_from_this();
-				Mode::current->init_function("x");
 				reset_clay();
+
+                // location = gamescene;
+                // Mode::current = shared_from_this();
+				// Mode::current->init_function("x");
+				// reset_clay();
             });
 			add_choice("Y = x^2", [this](MenuMode::Item const &){
-                location = gamescene;
+				location = scenes_mode;
+				scene = custum_function;
+				time_fixed = true;
+				state = begin;
+				show_to_match_line = true;
+
+				std::vector<std::vector<double>> function_coeffs = {
+					{0.1,0.0,0.0}, //y = ax^2 + bx + c
+				};
+				current_order = scene_order(function_coeffs);
+				parse_function(current_order.functions[0]);
                 Mode::current = shared_from_this();
-				Mode::current->init_function("x^2");
 				reset_clay();
+
+                // location = gamescene;
+                // Mode::current = shared_from_this();
+				// Mode::current->init_function("x^2");
+				// reset_clay();
             });
 			
 			//Second column of options
@@ -307,12 +386,13 @@ void PlayMode::enter_scene(float elapsed) {
 				location = scenes_mode;
 				scene  = line_intercept;
 				state = begin;
+				show_to_match_line_on_finished = true;
+				show_to_match_line = false;
+
                 Mode::current = shared_from_this();
 				std::vector<std::vector<double>> function_coeffs = {
 					{0.0,0.0,-3.0}, //y = ax^2 + bx + c
-					// {0.0,0.0,-1.0},
 					{0.0,0.0,0.0},
-					// {2,0,0},
 					{0.0,0.0,1.0},
 					{0.0,0.0,2.0},
 				};
@@ -325,14 +405,15 @@ void PlayMode::enter_scene(float elapsed) {
 			add_choice("Line Slope", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene  = line_slope;
+				state = begin;
+				show_to_match_line_on_finished = true;
+				show_to_match_line = false;
                 Mode::current = shared_from_this();
 				std::vector<std::vector<double>> function_coeffs = {
-					{0,-3.0,0}, //ax^2 + bx + c
-					{0,-2.0,0},
+					{0,-2.0,0}, //ax^2 + bx + c
 					{0,-1.0,0},
 					{0,1.0,0},
 					{0,2.0,0.0},
-					// {0,0,2},
 				};
 				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);
@@ -343,14 +424,15 @@ void PlayMode::enter_scene(float elapsed) {
 			add_choice("Parabola Concavity", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene = parabola_concavity;
+				state = begin;
+				show_to_match_line_on_finished = true;
+				show_to_match_line = false;
                 Mode::current = shared_from_this();
 				std::vector<std::vector<double>> function_coeffs = {
 					{0.5,0,0}, //ax^2 + bx + c
-					// {0,0,-2},
 					{0.1,0,0},
 					{-0.1,0,0},
 					{-0.5,0,0},
-					// {0,0,2},
 				};
 				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);				
@@ -359,6 +441,9 @@ void PlayMode::enter_scene(float elapsed) {
 			add_choice("Parabola Vertex", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene = parabola_vertex;
+				state = begin;
+				show_to_match_line_on_finished = true;
+				show_to_match_line = false;
                 Mode::current = shared_from_this();
 				std::vector<std::string> function_names = {
 					"(x-4)^2",
@@ -370,13 +455,27 @@ void PlayMode::enter_scene(float elapsed) {
 				current_order = scene_order(function_names);
 				parse_function(current_order.functions[0]);				
 				reset_clay();
-
 			});
 			at.x = 0.45f;
+			at.y -= 0.1f;
 			add_choice("Exit Game", [this](MenuMode::Item const &){
 				Mode::set_current(nullptr);
-				return;
+				// return;
 			});
+			// add_choice("Test", [this](MenuMode::Item const &){
+            //     location = scenes_mode;
+			// 	scene = experimental_1;
+			// 	time_fixed = false;
+			// 	state = inside;
+            //     Mode::current = shared_from_this();
+			// 	std::vector<std::string> function_names = {
+			// 		"None"
+			// 	};
+			// 	to_match.name = "None";
+			// 	current_order = scene_order(function_names);
+			// 	parse_function(current_order.functions[0]);		
+			// 	reset_clay();
+			// });
             // // add_choice("CREDIT", [this](MenuMode::Item const &){
             //     location = credit;
             //     Mode::current = shared_from_this();
@@ -674,197 +773,75 @@ void PlayMode::append_data(std::string input_file_name, std::vector<std::string>
     fileAppend.close();
 }
 
+std::vector<double> PlayMode::parse_function_coeffs(std::vector<double> &coeffs_unscaled){
+	std::vector<double> temp = {0.f,0.0f,0.0f};
+	temp [2] = coeffs_unscaled[0] + center_axis.y;
+	return temp;
+}
 
 void PlayMode::parse_function(function &selected_function){
 	// Open the hardware serial ports.
 	//std::cout<<"Named function: y = "<<selected_function.name<<std::endl;
-	to_match.name = "x";
+	// to_match.name = "x";
 	//to_match.name = selected_function.name;
 	glm::vec2 start, end;
 	if (selected_function.name != "None"){
 		if (selected_function.real_coeff[0] ==0.0f){
-			if (selected_function.real_coeff[1] ==0.0f){
-				to_match.order = 1;
-				start = glm::vec2(0.0f, center_axis.y + selected_function.real_coeff[2]*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y + selected_function.real_coeff[2]*unit_line_spacing); 
-			}
-			else if (selected_function.real_coeff[0]==0.0f){
-				to_match.order = 1;
-				start = glm::vec2(center_axis.x - unit_line_spacing* 1, center_axis.y - unit_line_spacing * selected_function.real_coeff[1]);
-				end = glm::vec2(center_axis.x + unit_line_spacing* 1, center_axis.y + unit_line_spacing * selected_function.real_coeff[1]);
-			}
+			to_match.order = 1;
+			std::cout<<"else case"<<std::endl;
+			double tempx1 = center_axis.x - unit_line_spacing* 1;
+			double tempx2 = center_axis.x + unit_line_spacing* 1;
+			double tempy1 = -1 * selected_function.real_coeff[1] + selected_function.real_coeff[2];
+			tempy1 = tempy1 * unit_line_spacing + center_axis.y;
+			double tempy2 = 1 * selected_function.real_coeff[1] + selected_function.real_coeff[2];
+			tempy2 = tempy2 * unit_line_spacing + center_axis.y;            
+			start = glm::vec2(tempx1, tempy1);
+			end = glm::vec2(tempx2, tempy2);
+			// end = glm::vec2(tempx2, tempx2 * selected_function.real_coeff[1] + selected_function.real_coeff[2]);
+			std::cout<<"start: "<<start.x<<", "<<start.y<<" end: "<<end.x<<", "<<end.y<<std::endl;
 			double A = (end.y-start.y)/(end.x-start.x);
 			double B = end.y- A*end.x;
-			std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
-			to_match.coeff = {B,A};
-			selected_function.coeff = {B,A};
-			// to_match.coeff_offset = {B,A};	
+			selected_function.coeff = {0.0,A,B};
+			// to_match.coeff = {0.0,A,B};
+			return;
+	
 		}
 		else if (selected_function.real_coeff[0] != 0.0f){
 			// std::cout<<"Match order 2"<<std::endl;
 			to_match.order = 2;
-			glm::vec2 middle;
+			double tempx1 = center_axis.x - unit_line_spacing* 1;
+			double tempx2 = center_axis.x + unit_line_spacing* 1;
+			double tempx3 = center_axis.x;
+			double tempy1 = (-1*-1)*selected_function.real_coeff[0]-1 * selected_function.real_coeff[1] + selected_function.real_coeff[2];
+			tempy1 = tempy1 * unit_line_spacing + center_axis.y;
+			double tempy2 = (1*1)*selected_function.real_coeff[0]+1 * selected_function.real_coeff[1] + selected_function.real_coeff[2];
+			tempy2 = tempy2 * unit_line_spacing + center_axis.y;
+			double tempy3 = selected_function.real_coeff[2];
+			tempy3 = tempy3 * unit_line_spacing + center_axis.y;
+			glm::vec2 start,end,middle;
 			double A, B, C;
 			std::cout<<"New origin: ("<<center_axis.x<<","<<center_axis.y<<")"<<std::endl;
 			std::cout << "Coefficients real: {" << selected_function.real_coeff[0]
-			 << ", " << selected_function.real_coeff[1] << ", " << selected_function.real_coeff[2] << "}" << std::endl;
-
-			A = selected_function.real_coeff[0] * 1/unit_line_spacing;
-			// B = selected_function.real_coeff[1] * 1/unit_line_spacing;
-			// C = selected_function.real_coeff[2] * 1/unit_line_spacing;
-			B = selected_function.real_coeff[1];
-			C = selected_function.real_coeff[2]*unit_line_spacing;
-
-			double new_B = B - 2 * A * center_axis.x;
-			C = C + A * center_axis.x * center_axis.x - B * center_axis.x + center_axis.y;
-			// C = C + A * center_axis.x * center_axis.y * center_axis.y;
-
-			std::cout << "Coefficients temp: {" << A << ", " << new_B << ", " << C << "}" << std::endl;
-			// start = glm::vec2(center_axis.x - unit_line_spacing * 1, center_axis.y + unit_line_spacing * (1*1) * selected_function.real_coeff[0]
-			// 		+ unit_line_spacing * 1 * selected_function.real_coeff[1] + selected_function.real_coeff[2]);
-			// end = glm::vec2(center_axis.x + unit_line_spacing * 1, center_axis.y + unit_line_spacing * (1*1) *selected_function.real_coeff[0]
-			// 		+ unit_line_spacing * 1 * selected_function.real_coeff[1] + selected_function.real_coeff[2]);	
-			// middle = glm::vec2(center_axis.x, center_axis.y + unit_line_spacing * (0*0) * selected_function.real_coeff[0]
-			// 		+ unit_line_spacing * 0 * selected_function.real_coeff[1] + selected_function.real_coeff[2]);
-			
+			 << ", " << selected_function.real_coeff[1] << ", " << 
+			 selected_function.real_coeff[2] << "}" << std::endl;
+			start = glm::vec2(tempx1, tempy1);
+			end = glm::vec2(tempx2, tempy2);
+			middle = glm::vec2(tempx3, tempy3);
 			// // Compute the coefficients of the parabola that passes through these points.
-			// double denom = (start.x - middle.x) * (start.x - end.x) * (middle.x - end.x);
-			// A     = (end.x * (middle.y - start.y) + middle.x * (start.y - end.y) + start.x * (end.y - middle.y)) / denom;
-			// B     = (end.x*end.x * (start.y - middle.y) + middle.x*middle.x * (end.y - start.y) + start.x*start.x * (middle.y - end.y)) / denom;
-			// C     = (middle.x * end.x * (middle.x - end.x) * start.y + end.x * start.x * (end.x - start.x) * middle.y + start.x * middle.x * (start.x - middle.x) * end.y) / denom;
-			
-		
-			// std::cout << "Coefficients: {" << A << ", " << B << ", " << C << "}" << std::endl;
-			to_match.coeff = {C,new_B,A}; //ax^2+bx+c returning in the opposite order
-			selected_function.coeff = {C,new_B,A};
-			// to_match.coeff_offset = {C+0.17,B,A}; //ax^2+bx+c returning in the opposite order
-		}
+			double denom = (start.x - middle.x) * (start.x - end.x) * (middle.x - end.x);
+			A     = (end.x * (middle.y - start.y) + middle.x * (start.y - end.y) + start.x * (end.y - middle.y)) / denom;
+			B     = (end.x*end.x * (start.y - middle.y) + middle.x*middle.x * (end.y - start.y) + start.x*start.x * (middle.y - end.y)) / denom;
+			C     = (middle.x * end.x * (middle.x - end.x) * start.y + end.x * start.x * 
+					(end.x - start.x) * middle.y + start.x * middle.x * 
+					(start.x - middle.x) * end.y) / denom;
+			selected_function.coeff = {A,B,C};
+			}
 		//time_fixed = true;
 	}
 }
 
 void PlayMode::init_function(std::string function_name){
-	// Open the hardware serial ports.
-	//function_to_match = function_name;
-	to_match.name = function_name;
-	glm::vec2 start, end;
-	if (to_match.name!= "None"){
-		if (function_name == "-3" || function_name == "-1" || 
-			function_name == "0" ||
-			function_name == "1" || function_name == "2" || function_name == "3"){
-			to_match.order = 1;
-			if (function_name == "-3"){
-				start = glm::vec2(0.0f, center_axis.y - 3*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y - 3*unit_line_spacing); 
-			}
-			else if (function_name == "-2"){
-				start = glm::vec2(0.0f, center_axis.y - 2*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y - 2*unit_line_spacing); 
-			}
-			else if (function_name == "-1"){
-				start = glm::vec2(0.0f, center_axis.y - 1*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y - 1*unit_line_spacing); 
-			}
-			else if (function_name == "0"){
-				start = glm::vec2(0.0f, center_axis.y - 0*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y - 0*unit_line_spacing); 
-			}
-			else if (function_name == "1"){
-				start = glm::vec2(0.0f, center_axis.y + 1*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y + 1*unit_line_spacing); 
-			}
-			else if (function_name == "2"){
-				start = glm::vec2(0.0f, center_axis.y + 2*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y +2*unit_line_spacing); 
-			}
-			else if (function_name == "3"){
-				start = glm::vec2(0.0f, center_axis.y + 3*unit_line_spacing);
-				end = glm::vec2(1.5f, center_axis.y +3*unit_line_spacing); 
-			}
-			double A = (end.y-start.y)/(end.x-start.x);
-			double B = end.y- A*end.x;
-			std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
-			to_match.coeff = {B,A};
-			// to_match.coeff_offset = {B-0.07,A}; 
-		}
-		else if (function_name == "-x^2" || function_name == "x^2"
-			|| function_name == "-2x^2" || function_name == "2x^2"
-			|| function_name == "-3x^2" || function_name == "3x^2"
-			
-			){
-			to_match.order = 2;
-			glm::vec2 middle;
-			// Three points to pass through.
-			if (function_name == "3x^2"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y + 0.1 * 3);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y + 0.1 * 3);	
-			}
-			if (function_name == "2x^2"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y + 0.1 * 2);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y + 0.1 * 2);	
-			}
-			else if (function_name == "x^2"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y + 0.1 * 1);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y + 0.1 * 1);	
-			}
-			else if (function_name == "-x^2"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y - 0.1 * 2);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y - 0.1 * 2);	
-			}
-			else if (function_name == "-2x^2"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y - 0.1 * 2);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y - 0.1 * 2);	
-			}
-			else if (function_name == "-3x^2"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y - 0.1 * 3);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y - 0.1 * 3);	
-			}
-			middle = glm::vec2(0.75f, 0.5f);
-			// Compute the coefficients of the parabola that passes through these points.
-			double denom = (start.x - middle.x) * (start.x - end.x) * (middle.x - end.x);
-			double A     = (end.x * (middle.y - start.y) + middle.x * (start.y - end.y) + start.x * (end.y - middle.y)) / denom;
-			double B     = (end.x*end.x * (start.y - middle.y) + middle.x*middle.x * (end.y - start.y) + start.x*start.x * (middle.y - end.y)) / denom;
-			double C     = (middle.x * end.x * (middle.x - end.x) * start.y + end.x * start.x * (end.x - start.x) * middle.y + start.x * middle.x * (start.x - middle.x) * end.y) / denom;
-			std::cout << "Coefficients: {" << A << ", " << B << ", " << C << "}" << std::endl;
-			to_match.coeff = {C,B,A}; //ax^2+bx+c returning in the opposite order
-			// to_match.coeff_offset = {C+0.17,B,A}; //ax^2+bx+c returning in the opposite order
-		}
-		else if (function_name == "-3x" || function_name == "-2x" || 
-			function_name == "-x" || function_name == "x" || 
-			function_name == "2x" || function_name == "3x"){
-			to_match.order = 1;
-			if (function_name == "x"){
-				start = glm::vec2(center_axis.x - 0.1* 1, center_axis.y - 0.1* 1);
-				end = glm::vec2(center_axis.x + 0.1* 1, center_axis.y + 0.1* 1);	
-			}
-			else if (function_name == "2x"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y - 0.1 * 2);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y + 0.1 * 2);	
-			}
-			else if (function_name == "3x"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y - 0.1 * 3);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y + 0.1 * 3);	
-			}
-			else if (function_name == "-x"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y + 0.1 * 1);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y - 0.1 * 1);	
-			}
-			else if (function_name == "-2x"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y + 0.1 * 2);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y - 0.1 * 2);	
-			}
-			else if (function_name == "-3x"){
-				start = glm::vec2(center_axis.x - 0.1 * 1, center_axis.y + 0.1 * 3);
-				end = glm::vec2(center_axis.x + 0.1 * 1, center_axis.y - 0.1 * 3);	
-			}
-			double A = (end.y-start.y)/(end.x-start.x);
-			double B = end.y- A*end.x;
-			std::cout << "Coefficients: {" << A << ", " << B << "}" << std::endl;
-			to_match.coeff = {B,A};
-			// to_match.coeff_offset = {B,A};
-		}
-		//time_fixed = true;
-	}
+	return;
 }
 
 bool PlayMode::areVectorsApproximatelyEqual(const std::vector<double>& v1, const std::vector<double>& v2, double tolerance) {
@@ -1027,182 +1004,6 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 			);
 		}
 	};
-
-	if (location == gamescene){
-		{
-			//particles:
-			//double avg_x = 0;
-			//double avg_y = 0;
-			std::vector<double> xs;
-			std::vector<double> ys;
-			for (auto const &p : particles) {
-				draw_circle(p.pos, particle_radius, colors.green);
-				xs.push_back(p.pos[0]);
-				ys.push_back(p.pos[1]);
-			}
-			if (ticks_acc % fit_step == 0){
-				if (to_match.name != "None"){
-					if (to_match.order ==1){
-						//Fit line and compute error
-						std::vector<double> coeff_1;
-						//boost::thread t(polyfit(xs, ys, coeff_1, err_1,1));
-						boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
-						t1.join();
-						//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
-						std::string curr_fitted_text ="";
-						fitted.order = 1;
-						if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.01) == false){
-							fitted.coeff = coeff_1;
-							curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-							curr_fitted_text.append(" x + ");
-							curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-							fitted.name = curr_fitted_text;
-						}
-					}
-					else if (to_match.order ==2){
-						//Fit line and compute error
-						std::vector<double> coeff_2;
-						//Fit parabola and compute error
-						boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
-						t2.join();
-						std::string curr_fitted_text ="";
-						fitted.order = 2;
-						if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.01) == false){
-							fitted.coeff = coeff_2;
-							curr_fitted_text.append(std::to_string(fitted.coeff[2]));
-							curr_fitted_text.append(" x^2 + ");
-							curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-							curr_fitted_text.append(" x + ");
-							curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-							fitted.name = curr_fitted_text;
-						}
-						
-					}
-				}
-				else{
-					//Fit line and compute error
-					std::vector<double> coeff_1,coeff_2;
-					boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
-					
-					//Fit parabola and compute error
-					boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
-					t1.join();
-					t2.join();
-					//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
-					std::string curr_fitted_text ="";
-					if(err_1-1 < err_2){
-						fitted.order = 1;
-						if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.01) == false){
-							fitted.coeff = coeff_1;
-							curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-							curr_fitted_text.append(" x + ");
-							curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-							fitted.name = curr_fitted_text;
-						}
-					}
-					else{
-						fitted.order = 2;
-						if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.01) == false){
-							fitted.coeff = coeff_2;
-							curr_fitted_text.append(std::to_string(fitted.coeff[2]));
-							curr_fitted_text.append(" x^2 + ");
-							curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-							curr_fitted_text.append(" x + ");
-							curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-							fitted.name = curr_fitted_text;
-						}
-					}
-				}
-			}
-			if (show_function_name){
-				lines.draw_text(fitted.name,
-					glm::vec3(0.9f, 0.1f, 0.0f),
-					glm::vec3(0.05f, 0.0f, 0.0f),
-					glm::vec3(0.0f, 0.05f, 0.0f),
-					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-			}
-			//Function to match
-			if (to_match.name != "None"){
-				if (to_match.order == 1){
-					lines.draw(glm::vec3(axis_min.x, (axis_min.x)*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
-					//lines.draw(glm::vec3(axis_min.x, (axis_min.x)*to_match.coeff_offset[1] + to_match.coeff_offset[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*to_match.coeff_offset[1] + to_match.coeff_offset[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
-
-					if (show_function_line){
-						lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
-					}
-					if (time_fixed == true){
-						auto final_time = std::chrono::high_resolution_clock::now();
-						auto curr_time = std::chrono::duration< double >(final_time - start_time).count();
-						if (curr_time > TIME_LIMIT){
-							//float final_error = get_error_from_l2norm(to_match.coeff,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
-							std::vector<double> err;
-							// std::vector<double> curr_coef = {(to_match.coeff[0]+to_match.coeff_offset[0])/2,to_match.coeff[1]};
-							// final_error = get_error_from_l2norm(curr_coef,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
-							location = donemode;
-							//Mode::set_current(std::make_shared<DoneMode>(curr_time,final_error));
-						}
-					}
-					else if (areVectorsApproximatelyEqual(to_match.coeff,fitted.coeff,0.02) == true){
-						std::cout<<"Matched!"<<std::endl;
-						auto final_time = std::chrono::high_resolution_clock::now();
-						auto done_time = std::chrono::duration< double >(final_time - start_time).count();
-						Mode::set_current(std::make_shared<DoneMode>(done_time,err_1));
-					}
-				}
-				else if (to_match.order == 2){
-					float step = (axis_max.x - axis_min.x) / parabola_step;
-					for (uint32_t a = 0; a < parabola_step; ++a){
-						lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*to_match.coeff[2]+ (axis_min.x+a*step)*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*to_match.coeff[2] + (axis_min.x+(a+1)*step)*to_match.coeff[1]+to_match.coeff[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
-						//lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*to_match.coeff_offset[2]+ (axis_min.x+a*step)*to_match.coeff_offset[1] + to_match.coeff_offset[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*to_match.coeff_offset[2] + (axis_min.x+(a+1)*step)*to_match.coeff_offset[1]+to_match.coeff_offset[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
-						if (show_function_line){
-							lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*fitted.coeff[2]+ (axis_min.x+a*step)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*fitted.coeff[2] + (axis_min.x+(a+1)*step)*fitted.coeff[1]+fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
-						}
-					}
-					if (time_fixed == true){
-						auto final_time = std::chrono::high_resolution_clock::now();
-						auto curr_time = std::chrono::duration< double >(final_time - start_time).count();
-						if (curr_time > TIME_LIMIT){
-							std::vector<double> err;
-							// std::vector<double> curr_coef = {(to_match.coeff[0]+to_match.coeff_offset[0])/2,to_match.coeff[1],to_match.coeff[2]};
-							// final_error = get_error_from_l2norm(curr_coef,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
-							location = donemode;
-							//Mode::set_current(std::make_shared<DoneMode>(curr_time,final_error));
-						}
-					}
-					if (areVectorsApproximatelyEqual(to_match.coeff,fitted.coeff,0.027) == true){
-						std::cout<<"Matched!"<<std::endl;
-						auto final_time = std::chrono::high_resolution_clock::now();
-						auto done_time = std::chrono::duration< double >(final_time - start_time).count();
-						Mode::set_current(std::make_shared<DoneMode>(done_time,err_2));
-					}
-				}
-			}
-			else{
-				//Fitted line:
-				if (fitted.order == 1){
-					lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3(axis_max.x, axis_max.x*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
-				}
-				else if (fitted.order == 2){
-					float step = (axis_max.x - axis_min.x) / parabola_step;
-					for (uint32_t a = 0; a < parabola_step; ++a){
-						lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*fitted.coeff[2]+ (axis_min.x+a*step)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*fitted.coeff[2] + (axis_min.x+(a+1)*step)*fitted.coeff[1]+fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
-					}
-				}
-			}
-			//probes:
-			for (auto const &p : probes) {
-				if (p.active==1) {
-					// draw_circle(p.pos, probe_radius, glm::u8vec4(0x88, 0x88, 0x00, 0xff));
-					draw_circle(p.target, probe_radius, glm::u8vec4(0x88, 0x88, 0x88, 0xff));
-					draw_circle(p.pos, probe_radius, glm::u8vec4(0x88, 0x88, 0x00, 0xff));
-				} else {
-					draw_circle(p.target, probe_radius, glm::u8vec4(0xff, 0x88, 0x88, 0xff));
-					draw_circle(p.pos, probe_radius, glm::u8vec4(0xff, 0x88, 0x00, 0xff));
-				}
-			}
-			
-		}
-	}
 	if (location == scenes_mode){
 		std::vector<double> xs;
 		std::vector<double> ys;
@@ -1226,43 +1027,76 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				break;
 			case inside:
 				{
-				std::string st = "Mold the function y = ";
-				st.append(current_order.functions[current_order.curr_val].name);
-				lines.draw_text(st,
-					glm::vec3(0.1f, 1.15f, 0.0f), //Start position
-					glm::vec3(0.05f, 0.0f, 0.0f),
-					glm::vec3(0.0f, 0.05f, 0.0f),
-					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-				lines.draw_text("Press N to start / skip ",
-						glm::vec3(0.1f, 1.07f, 0.0f), //Start position
+				if (scene == experimental_1 || scene == experimental_2){
+					std::string st = "Play around as you wish";
+					lines.draw_text(st,
+						glm::vec3(0.1f, 1.15f, 0.0f), //Start position
 						glm::vec3(0.05f, 0.0f, 0.0f),
 						glm::vec3(0.0f, 0.05f, 0.0f),
 						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+					lines.draw_text("When you are done, press d",
+							glm::vec3(0.1f, 1.07f, 0.0f), //Start position
+							glm::vec3(0.05f, 0.0f, 0.0f),
+							glm::vec3(0.0f, 0.05f, 0.0f),
+							glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+				}
+				else{
+					std::string st = "Mold the function y = ";
+					st.append(current_order.functions[current_order.curr_val].name);
+					lines.draw_text(st,
+						glm::vec3(0.1f, 1.15f, 0.0f), //Start position
+						glm::vec3(0.05f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.05f, 0.0f),
+						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+					lines.draw_text("Press N to start / skip ",
+							glm::vec3(0.1f, 1.07f, 0.0f), //Start position
+							glm::vec3(0.05f, 0.0f, 0.0f),
+							glm::vec3(0.0f, 0.05f, 0.0f),
+							glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+				}
 				//draw particles
 				for (auto const &p : particles) {
 					draw_circle(p.pos, particle_radius, colors.green);
-					xs.push_back(p.pos[0]);
-					ys.push_back(p.pos[1]);
+					xs.push_back((p.pos[0]-center_axis.x)*(1/unit_line_spacing));
+					ys.push_back((p.pos[1]-center_axis.y)*(1/unit_line_spacing));
 				}
 
 				//GET fitted line
 				{
 					if (ticks_acc % fit_step == 0){
-						if (to_match.name != "None"){
+						if (to_match.name == "None"){
+							//Fit line and compute error
+							std::vector<double> coeff_1,coeff_2;
+							if (scene == experimental_1){
+								boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
+								t1.join();
+								if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.003) == false){
+									fitted.rename({0.0f,coeff_1[1],coeff_1[0]});
+									parse_function(fitted);
+								}
+								fitted.order = 1;
+							}
+							else if (scene == experimental_2){
+								boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
+								t2.join();
+								if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.003) == false){
+									fitted.rename({coeff_2[2],coeff_2[1],coeff_2[0]});
+									parse_function(fitted);
+								}
+								fitted.order = 2;
+							}
+						}
+						else{
 							if (to_match.order ==1){
 								//Fit line and compute error
 								std::vector<double> coeff_1;
-								//boost::thread t(polyfit(xs, ys, coeff_1, err_1,1));
 								boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
 								t1.join();
 								std::string curr_fitted_text ="";
 								fitted.order = 1;
 								if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.01) == false){
-									fitted.coeff = coeff_1;
-									curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-									curr_fitted_text.append(" x + ");
-									curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-									fitted.name = curr_fitted_text;
+									fitted.rename({0.0f,coeff_1[1],coeff_1[0]});
+									parse_function(fitted);
 								}
 							}
 							else if (to_match.order ==2){
@@ -1273,107 +1107,110 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 								t2.join();
 								std::string curr_fitted_text ="";
 								fitted.order = 2;
+								std::cout<<"here"<<std::endl;
 								if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.01) == false){
-									fitted.coeff = coeff_2;
-									curr_fitted_text.append(std::to_string(fitted.coeff[2]));
-									curr_fitted_text.append(" x^2 + ");
-									curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-									curr_fitted_text.append(" x + ");
-									curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-									fitted.name = curr_fitted_text;
-								}
-								
-							}
-						}
-						else{
-							//Fit line and compute error
-							std::vector<double> coeff_1,coeff_2;
-							boost::thread t1(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_1), boost::ref(err_1), 1);
-							
-							//Fit parabola and compute error
-							boost::thread t2(&PlayMode::polyfit, this, boost::ref(xs), boost::ref(ys), boost::ref(coeff_2), boost::ref(err_2), 2);
-							t1.join();
-							t2.join();
-							//std::cout<<"error_1: "<<err_1<<"  error_2: "<<err_2<<std::endl;
-							std::string curr_fitted_text ="";
-							if(err_1-1 < err_2){
-								fitted.order = 1;
-								if (areVectorsApproximatelyEqual(coeff_1,fitted.coeff,0.003) == false){
-									fitted.coeff = coeff_1;
-									curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-									curr_fitted_text.append(" x + ");
-									curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-									fitted.name = curr_fitted_text;
-								}
-							}
-							else{
-								fitted.order = 2;
-								if (areVectorsApproximatelyEqual(coeff_2,fitted.coeff,0.003) == false){
-									fitted.coeff = coeff_2;
-									curr_fitted_text.append(std::to_string(fitted.coeff[2]));
-									curr_fitted_text.append(" x^2 + ");
-									curr_fitted_text.append(std::to_string(fitted.coeff[1]));
-									curr_fitted_text.append(" x + ");
-									curr_fitted_text.append(std::to_string(fitted.coeff[0]));
-									fitted.name = curr_fitted_text;
+									std::cout<<"vector not equal"<<std::endl;
+									fitted.rename({coeff_2[2],coeff_2[1],coeff_2[0]});
+									parse_function(fitted);
 								}
 							}
 						}
 					}
 				}
-				if (to_match.name != "None"){
-					if (to_match.order == 1){
-						if (show_to_match_line){
-							lines.draw(glm::vec3(axis_min.x, (axis_min.x)*to_match.coeff[1] + to_match.coeff[0], 0.0f), 
-								glm::vec3(axis_max.x, axis_max.x*to_match.coeff[1] + to_match.coeff[0], 0.0f), colors.green);
+				if (show_function_name){
+					lines.draw_text(fitted.name,
+						glm::vec3(0.9f, 0.1f, 0.0f),
+						glm::vec3(0.05f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.05f, 0.0f),
+						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+				}
+				if (fitted.order == 1){
+					if (show_to_match_line){
+							std::vector<double> curr_coeffs = current_order.functions[current_order.curr_val].coeff;
+							float y1 = axis_min.x * curr_coeffs[1] + curr_coeffs[2];
+							float y2 = axis_max.x * curr_coeffs[1] + curr_coeffs[2];
+
+							glm::vec3 p1(axis_min.x, y1, 0.0f);
+							glm::vec3 p2(axis_max.x, y2, 0.0f);
+
+							// Check if y-values are outside the range
+							if (y1 < axis_min.y || y1 > axis_max.y) {
+								// Calculate x-value at y-limits
+								float x1 = (axis_min.y - curr_coeffs[2]) / curr_coeffs[1];
+								// Set extreme point with y-limits
+								p1 = glm::vec3(x1, axis_min.y, 0.0f);
+							}
+
+							if (y2 < axis_min.y || y2 > axis_max.y) {
+								// Calculate x-value at y-limits
+								float x2 = (axis_max.y - curr_coeffs[2]) / curr_coeffs[1];
+								// Set extreme point with y-limits
+								p2 = glm::vec3(x2, axis_max.y, 0.0f);
+							}
+							lines.draw_bold(p1, p2, colors.green,0.001);
 						}
 						if (show_fitted_line){
-							lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[0], 0.0f), 
-								glm::vec3(axis_max.x, axis_max.x*fitted.coeff[1] + fitted.coeff[0], 0.0f), colors.blue);
+						lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[2], 0.0f), 
+							glm::vec3(axis_max.x, axis_max.x*fitted.coeff[1] + fitted.coeff[2], 0.0f), colors.blue);
 						}
 					}
-					else if (to_match.order == 2){
-						if (show_to_match_line || show_fitted_line){
-							float step = (axis_max.x - axis_min.x) / parabola_step;
-							for (uint32_t a = 0; a < parabola_step; ++a){
-								if (show_to_match_line){
-									lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*to_match.coeff[2]+ (axis_min.x+a*step)*to_match.coeff[1] + to_match.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*to_match.coeff[2] + (axis_min.x+(a+1)*step)*to_match.coeff[1]+to_match.coeff[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
+				else if (fitted.order == 2){
+					if (show_to_match_line || show_fitted_line){
+						std::vector<double> curr_coeffs = current_order.functions[current_order.curr_val].coeff;
+						float step = (axis_max.x - axis_min.x) / parabola_step;
+						for (uint32_t a = 0; a < parabola_step; ++a){
+							if (show_to_match_line){
+								float step = (axis_max.x - axis_min.x) / parabola_step;
+								for (uint32_t a = 0; a < parabola_step; ++a) {
+									// Calculate the x-values and corresponding y-values for the parabola segment
+									float x1 = axis_min.x + a * step;
+									float x2 = axis_min.x + (a + 1) * step;
+									float y1 = x1 * x1 * curr_coeffs[0] + x1 * curr_coeffs[1] + curr_coeffs[2];
+									float y2 = x2 * x2 * curr_coeffs[0] + x2 * curr_coeffs[1] + curr_coeffs[2];
+
+									glm::vec3 p1(x1, y1, 0.0f);
+									glm::vec3 p2(x2, y2, 0.0f);
+
+									if (y1> axis_min.y && y1 < axis_max.y && y2> axis_min.y && y2 < axis_max.y){
+										lines.draw_bold(p1, p2, colors.green,0.001);
+									}
 								}
-								//lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*to_match.coeff_offset[2]+ (axis_min.x+a*step)*to_match.coeff_offset[1] + to_match.coeff_offset[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*to_match.coeff_offset[2] + (axis_min.x+(a+1)*step)*to_match.coeff_offset[1]+to_match.coeff_offset[0], 0.0f), glm::u8vec4(0x20, 0x95, 0x19, 0xff));
-								if (show_fitted_line){
-									lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*fitted.coeff[2]+ (axis_min.x+a*step)*fitted.coeff[1] + fitted.coeff[0], 0.0f), glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*fitted.coeff[2] + (axis_min.x+(a+1)*step)*fitted.coeff[1]+fitted.coeff[0], 0.0f), glm::u8vec4(0x31, 0x41, 0xD3, 0xff));
-								}
+							}
+							if (show_fitted_line){
+								lines.draw(glm::vec3(axis_min.x + a*step, (axis_min.x+a*step)*(axis_min.x+a*step)*fitted.coeff[0]+ (axis_min.x+a*step)*fitted.coeff[1] + fitted.coeff[2], 0.0f), 
+								glm::vec3((axis_min.x+(a+1)*step), (axis_min.x+(a+1)*step)*(axis_min.x+(a+1)*step)*fitted.coeff[0] + (axis_min.x+(a+1)*step)*fitted.coeff[1]+fitted.coeff[2], 0.0f), 
+								colors.blue);
 							}
 						}
-						
 					}
-					if (time_fixed == true){
-						auto final_time = std::chrono::high_resolution_clock::now();
-						auto curr_time = std::chrono::duration< double >(final_time - matching_start_time).count();
-						//Draw time left
-						std::string time_left_text = "Time left: ";
-						time_left_text.append(std::to_string(int(TIME_LIMIT_PER_FUNCTION - curr_time)));
-						time_left_text.append(" s");
-						lines.draw_text(time_left_text, 
-										glm::vec3(axis_max.x-0.4, 1.15f, 0.0f), //Start position
-										glm::vec3(0.05f, 0.0f, 0.0f),
-										glm::vec3(0.0f, 0.05f, 0.0f),
-										glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-						std::vector<double> err;
-						//std::vector<double> curr_coef = {(to_match.coeff[0]+to_match.coeff_offset[0])/2,to_match.coeff[1],to_match.coeff[2]};
-						// final_error = 0.0;
-						if (curr_time > TIME_LIMIT_PER_FUNCTION){
-							final_error = get_error_from_l2norm(to_match.coeff,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
-							prev_match = function(to_match.coeff);
-							if (scene == line_intercept || scene == line_slope || scene == parabola_vertex || scene == parabola_concavity){ 								current_order.curr_val += 1 ;
-								append_data(file_name, {"function",current_order.functions[current_order.curr_val].name,
-											"time",std::to_string(int(curr_time)),"error",std::to_string(final_error)});
-								if (current_order.curr_val < current_order.functions.size()){
-									std::cout<<std::endl;
-									parse_function(current_order.functions[current_order.curr_val]);
-								}
-								state = end;
+				}
+
+				if (time_fixed == true){
+					auto final_time = std::chrono::high_resolution_clock::now();
+					auto curr_time = std::chrono::duration< double >(final_time - matching_start_time).count();
+					//Draw time left
+					std::string time_left_text = "Time left: ";
+					time_left_text.append(std::to_string(int(TIME_LIMIT_PER_FUNCTION - curr_time)));
+					time_left_text.append(" s");
+					lines.draw_text(time_left_text, 
+									glm::vec3(axis_max.x-0.4, 1.15f, 0.0f), //Start position
+									glm::vec3(0.05f, 0.0f, 0.0f),
+									glm::vec3(0.0f, 0.05f, 0.0f),
+									glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+					std::vector<double> err;
+					//std::vector<double> curr_coef = {(to_match.coeff[0]+to_match.coeff_offset[0])/2,to_match.coeff[1],to_match.coeff[2]};
+					// final_error = 0.0;
+					if (curr_time > TIME_LIMIT_PER_FUNCTION){
+						final_error = get_error_from_l2norm(to_match.coeff,to_match.order,boost::ref(err), boost::ref(xs), boost::ref(ys));
+						prev_match = function(to_match.coeff);
+						if (scene == line_intercept || scene == line_slope || scene == parabola_vertex || scene == parabola_concavity){ 								current_order.curr_val += 1 ;
+							append_data(file_name, {"function",current_order.functions[current_order.curr_val].name,
+										"time",std::to_string(int(curr_time)),"error",std::to_string(final_error)});
+							if (current_order.curr_val < current_order.functions.size()){
+								std::cout<<std::endl;
+								parse_function(current_order.functions[current_order.curr_val]);
 							}
+							state = end;
 						}
 					}
 				}
@@ -1426,11 +1263,10 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					if (to_match.name != "None"){
 						// std::vector<double> curr_coeffs = current_order.functions[current_order.curr_val-1].real_coeff;
 						std::vector<double> curr_coeffs = current_order.functions[current_order.curr_val-1].coeff;
-						
 						if (to_match.order == 1){
 							if (show_to_match_line_on_finished){
-								float y1 = axis_min.x * curr_coeffs[1] + curr_coeffs[0];
-								float y2 = axis_max.x * curr_coeffs[1] + curr_coeffs[0];
+								float y1 = axis_min.x * curr_coeffs[1] + curr_coeffs[2];
+								float y2 = axis_max.x * curr_coeffs[1] + curr_coeffs[2];
 
 								glm::vec3 p1(axis_min.x, y1, 0.0f);
 								glm::vec3 p2(axis_max.x, y2, 0.0f);
@@ -1438,19 +1274,20 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 								// Check if y-values are outside the range
 								if (y1 < axis_min.y || y1 > axis_max.y) {
 									// Calculate x-value at y-limits
-									float x1 = (axis_min.y - curr_coeffs[0]) / curr_coeffs[1];
+									float x1 = (axis_min.y - curr_coeffs[2]) / curr_coeffs[1];
 									// Set extreme point with y-limits
 									p1 = glm::vec3(x1, axis_min.y, 0.0f);
 								}
 
 								if (y2 < axis_min.y || y2 > axis_max.y) {
 									// Calculate x-value at y-limits
-									float x2 = (axis_max.y - curr_coeffs[0]) / curr_coeffs[1];
+									float x2 = (axis_max.y - curr_coeffs[2]) / curr_coeffs[1];
 									// Set extreme point with y-limits
 									p2 = glm::vec3(x2, axis_max.y, 0.0f);
 								}
-
-								lines.draw_bold(p1, p2, colors.green,0.001);
+								if (show_to_match_line_on_finished){
+									lines.draw_bold(p1, p2, colors.green,0.001);
+								}
 							}
 							if (show_function_line_on_finished){
 								lines.draw(glm::vec3(axis_min.x, (axis_min.x)*fitted.coeff[1] + fitted.coeff[0], 0.0f), 
@@ -1465,8 +1302,8 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 									// Calculate the x-values and corresponding y-values for the parabola segment
 									float x1 = axis_min.x + a * step;
 									float x2 = axis_min.x + (a + 1) * step;
-									float y1 = x1 * x1 * curr_coeffs[2] + x1 * curr_coeffs[1] + curr_coeffs[0];
-									float y2 = x2 * x2 * curr_coeffs[2] + x2 * curr_coeffs[1] + curr_coeffs[0];
+									float y1 = x1 * x1 * curr_coeffs[0] + x1 * curr_coeffs[1] + curr_coeffs[2];
+									float y2 = x2 * x2 * curr_coeffs[0] + x2 * curr_coeffs[1] + curr_coeffs[2];
 
 									glm::vec3 p1(x1, y1, 0.0f);
 									glm::vec3 p2(x2, y2, 0.0f);
@@ -1502,6 +1339,7 @@ void PlayMode::reset_clay() {
 			particles.emplace_back(p);
 		}
 	}
+	std::cout<<"time start"<<std::endl;
 	start_time = std::chrono::high_resolution_clock::now();
 	probe_rot = 0.0f; //Set the rotation back to zero:
 }

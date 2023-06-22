@@ -46,10 +46,14 @@ struct PlayMode : Mode {
 		glm::vec2 start;
 		glm::vec2 end;
 		std::vector<double> vector_from_name(std::string name_string) {
-			std::vector<double> coefficients;
-
-			// Remove whitespaces from the equation name
+			std::vector<double> coefficients = {0.0,0.0,0.0};
 			name_string.erase(remove_if(name_string.begin(), name_string.end(), ::isspace), name_string.end());
+			
+			if (name_string == "None") {
+				name = name_string;
+				return coefficients;
+			}
+			// Remove whitespaces from the equation name
 
 			std::cout<<name_string.size()<<" "<<name_string[0]<<" "<<name_string[name_string.size() - 3]<<" "<<name_string[name_string.size() - 2]<<std::endl;
 			// Check if the equation is a parabola of the form "(x+k)^2"
@@ -124,35 +128,40 @@ struct PlayMode : Mode {
 			}
         	return name;
     	}
-
+		//rename from real_coeff modified
+		void rename(std::vector<double> input_vector){
+			real_coeff = input_vector;
+			name  = name_from_vector(input_vector);
+		}
 		function()
 		{
 			//inside empty constructor
 		}
 		function(std::vector<double> coeffs)
 		{
-			coeff = coeffs;
 			real_coeff = coeffs;
+			coeff = coeffs;
+			coeff[2] = 0.5;
 			name = name_from_vector(coeffs);
-			//std::cout<<"Assigned name: " <<name<<std::endl;
 		}
 		function(std::string name_string)
 		{
-			//name = name_from_vector(coeffs);
 			real_coeff =  vector_from_name(name_string);
-
+			name = name_string;
 		}
 	};
 	std::vector<double> initial_coeff = {0.0,0.0,0.0};
 	function prev_match = function(initial_coeff);
 	function to_match = function(initial_coeff);
 	function fitted = function(initial_coeff);
+
 	void parse_function(function &selected_function);
+	std::vector<double> parse_function_coeffs(std::vector<double>& coeffs_unscaled);
 
 	struct scene_order{
 		// std::vector<std::string> function_order;
 		std::vector<function> functions;
-		int curr_val;
+		int curr_val = 0;
 		scene_order()
 		{
 			//inside empty constructor
@@ -163,16 +172,19 @@ struct PlayMode : Mode {
 			{
 				functions.push_back(function(i));
 			}
-			//function_order = order;
 			curr_val = 0;
+			//function_order = order;
 			std::cout<<"Assigned function order"<<std::endl;
 			//inside parameterized constructor
 		}
 		scene_order(std::vector<std::string> order){
+			
 			for (auto &i : order)
 			{
+				std::cout<<"input name"<< i<<std::endl;
 				functions.push_back(function(i));
 			}
+			curr_val = 0;
 		}
 	}current_order;
 	
@@ -192,6 +204,9 @@ struct PlayMode : Mode {
 		line_slope,
 		parabola_concavity,
 		parabola_vertex,
+		experimental_1,
+		experimental_2,
+		custum_function,
 	}scene = line_intercept;
 	enum{
 		begin,
@@ -332,7 +347,7 @@ struct PlayMode : Mode {
 	std::chrono::_V2::system_clock::time_point matching_start_time;
 
 
-	bool show_function_name = false;
+	bool show_function_name = true;
 	bool show_function_line = true;
 	bool show_function_line_on_finished = false;
 
@@ -341,7 +356,7 @@ struct PlayMode : Mode {
 	bool show_to_match_line_on_finished = true;
 	std::string file_name = "";
 	bool time_fixed = true;
-	inline static constexpr float TIME_LIMIT = 3.0f; //given in seconds
+	inline static constexpr float TIME_LIMIT = 20.0f; //given in seconds
 	inline static constexpr float TIME_LIMIT_PER_FUNCTION = 60.0f; //given in seconds
 
 };
