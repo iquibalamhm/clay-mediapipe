@@ -104,8 +104,8 @@ extern "C" { uint32_t GetACP(); }
 # define FOCAL_LENGTH 4
 //is the amount of width and height that is going to be cropped
 # define SCALE 2.0
-# define CROP_RATIO 1.0/3.0
-
+# define CROP_RATIO 0.7/3.0
+# define handness 0 // 0 for default (center), 1 for left, 2 for right
 constexpr char kInputStream[] = "input_video";
 constexpr char kWindowName[] = "MediaPipe";
 constexpr char kOutputLandmarks[] = "hand_landmarks";
@@ -686,7 +686,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     
     cv::VideoWriter writer;
     const bool save_video = !absl::GetFlag(FLAGS_output_video_path).empty();
-    //   if (!save_video) {
+    //  if (!save_video) {
     //     cv::namedWindow(kWindowName, /*flags=WINDOW_AUTOSIZE*/ 1);
     // #if (CV_MAJOR_VERSION >= 3) && (CV_MINOR_VERSION >= 2)
     //     capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);

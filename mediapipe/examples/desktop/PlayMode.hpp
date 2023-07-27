@@ -26,7 +26,7 @@ struct PlayMode : Mode {
 	virtual void init_serial(std::string port_name) override;
 	virtual void close_serial() override;
 	virtual void init_function(std::string function) override;
-	virtual void init_file(std::string input_file_name) override;
+	virtual void init_logfile(std::string input_file_name) override;
 
 	virtual void reset_motor();
 
@@ -36,10 +36,12 @@ struct PlayMode : Mode {
 	//called to create menu for current scene:
 	void enter_scene(float elapsed);
 	void append_data(std::string input_file_name, std::vector<std::string> data);
+	void init_session_order(const std::string& filename, std::vector<std::string>& strings, std::vector<std::vector<double>>& coeffs);
+
 	std::string serial_port_name = "None";
 
 	struct function{
-		std::string name;
+		std::string name = "";
 		std::vector<double> coeff;
 		std::vector<double> real_coeff = {0.0,0.0,0.0}; // ax^2 + bx + c
 		uint8_t order;
@@ -76,7 +78,7 @@ struct PlayMode : Mode {
 		}
 		
 		std::string name_from_vector(std::vector<double> coeffs) {
-			std::string name;
+			std::string name = "";
 			int numCoeffs = coeffs.size();
 			if (numCoeffs == 0) {
 				return name;
@@ -229,6 +231,7 @@ struct PlayMode : Mode {
 	glm::vec2 thumb_2_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 	
 	bool do_pinch = false;
+	bool open_probes = false;
 	//stored on each draw, used on each update:
 	glm::mat4 world_to_clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,  
 										0.0f, 1.0f, 0.0f, 0.0f,  
@@ -261,8 +264,10 @@ struct PlayMode : Mode {
 	struct Probe {
 		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
 		glm::vec2 target = glm::vec2(0.0f, 0.0f);
-		bool active = true;
+		bool active = false;
+		bool touching = false;
 	};
+	uint32_t count_touching_probes = 0; 
 		//glm::vec2 force = glm::vec2(0.0f, 0.0f);
 	std::vector< Probe > probes;
 	float probe_rot = 0.0f;
@@ -271,10 +276,13 @@ struct PlayMode : Mode {
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
 
+	bool particles_fixed = false;
+
 	float err_1 = 0.0f;
 	float err_2 =0.0f;
 	bool rigid = false;
-	bool mod_1 = true;
+	bool mod_1 = false;
+	bool mod_2 = true;
 	int num_hands = 1;
 	bool hand_1_closed = false;
 	bool hand_2_closed = false;
@@ -318,11 +326,13 @@ struct PlayMode : Mode {
 	float unit_line_spacing = 0.1f;
 
 	void reset_clay();
+	void shape_clay();
+	void reset_clay_line();
 	void tick_clay();
 	double final_error = -1.0;
 
 	//Particle parameters
-	const float viscosity_radius = 2.0f * particle_radius;
+	const float viscosity_radius = 7.0f * particle_radius;
 	const float wall_bounce = 0.01f;
 	// const float alpha = 0.9f; //controls particle squish
 	const float alpha = 0.99f; //controls particle squish
@@ -347,6 +357,10 @@ struct PlayMode : Mode {
 	std::chrono::_V2::system_clock::time_point matching_start_time;
 
 
+
+    // Configuration map to store the key-value pairs
+	std::string file_name = "";
+
 	bool show_function_name = true;
 	bool show_function_line = true;
 	bool show_function_line_on_finished = false;
@@ -354,9 +368,8 @@ struct PlayMode : Mode {
 	bool show_to_match_line = false;
 	bool show_fitted_line = true;
 	bool show_to_match_line_on_finished = true;
-	std::string file_name = "";
 	bool time_fixed = true;
-	inline static constexpr float TIME_LIMIT = 20.0f; //given in seconds
-	inline static constexpr float TIME_LIMIT_PER_FUNCTION = 60.0f; //given in seconds
+	inline static float TIME_LIMIT = 60.0f; //given in seconds
+	inline static float TIME_LIMIT_PER_FUNCTION = 60.0f; //given in seconds
 
 };

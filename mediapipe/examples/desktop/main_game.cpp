@@ -245,19 +245,10 @@ int main(int argc, char **argv)
 			// Write column headers
 			// file << "Column1,Column2,Column3\n";
 
-			// Set up random number generation
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			std::uniform_int_distribution<> dis(0, 99);
-
-			// Write random data rows
-			// for (int i = 0; i < 3; ++i) {
-			// 	file << dis(gen) << ',' << dis(gen) << ',' << dis(gen) << '\n';
-			// }
 			std::cout << "File created successfully: " << filename.str() << std::endl;
 			// Close the file
 			file.close();
-			Mode::current->init_file(filename.str());
+			Mode::current->init_logfile(filename.str());
 		}
 
 		// parse arguments
