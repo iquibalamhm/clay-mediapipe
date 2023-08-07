@@ -1,6 +1,6 @@
 #include "Mode.hpp"
 
-#include <glm/glm.hpp>
+// #include <glm/glm.hpp>
 
 #include <vector>
 #include <deque>
@@ -9,11 +9,14 @@
 #include <libserial/SerialStream.h>
 #include <chrono>
 
+#include <unordered_map>
 #include <algorithm> // For std::remove_if
 
 #include <iostream> //For std::cout
 #include <sstream>  // For std::ostringstream
 #include <iomanip>  // For std::setprecision
+
+#include "SpatialGrid.hpp"
 
 struct PlayMode : Mode {
 	PlayMode();
@@ -37,8 +40,9 @@ struct PlayMode : Mode {
 	void enter_scene(float elapsed);
 	void append_data(std::string input_file_name, std::vector<std::string> data);
 	void init_session_order(const std::string& filename, std::vector<std::string>& strings, std::vector<std::vector<double>>& coeffs);
-
+	void detectHandState(const glm::vec2& thumbPos, const glm::vec2& pointingFingerPos, std::vector<float>& prevDistances);
 	std::string serial_port_name = "None";
+    std::vector<float> prevDistances;
 
 	struct function{
 		std::string name = "";
@@ -191,7 +195,11 @@ struct PlayMode : Mode {
 	}current_order;
 	
     LibSerial::SerialPort serial_port;
-	
+	enum {
+		neutral,
+		opening,
+		closing,
+	} hand_state = neutral;
 	enum {
 		mainmenu,
 		website,
@@ -240,10 +248,11 @@ struct PlayMode : Mode {
 
 	float time_acc = 0.0f;
 
-	struct Particle {
-		glm::vec2 pos = glm::vec2(0.0f, 0.0f);
-		glm::vec2 vel = glm::vec2(0.0f, 0.0f);
-	};
+	// struct Particle {
+	// 	glm::vec2 pos = glm::vec2(0.0f, 0.0f);
+	// 	glm::vec2 vel = glm::vec2(0.0f, 0.0f);
+	// 	Particle(const glm::vec2& pos, const glm::vec2& vel) : pos(pos), vel(vel) {}
+	// };
 		//uint32_t neighbors_begin = -1U, neighbors_end = -1U; //into neighbors array
 
 	/*
@@ -277,6 +286,11 @@ struct PlayMode : Mode {
 	bool do_hand_movement = false;
 
 	bool particles_fixed = false;
+	bool use_viscosity = false;
+	bool use_close = false;
+	bool use_grid = false;
+	bool move_together = false;
+
 
 	float err_1 = 0.0f;
 	float err_2 =0.0f;
@@ -288,6 +302,8 @@ struct PlayMode : Mode {
 	bool hand_2_closed = false;
 	bool hand_1_active = false;
 	bool hand_2_active = false;
+	int hand_1_state = 0; // 0 neutral, 1 opening, 2 closing
+	int hand_2_state = 0; // 0 neutral, 1 opening, 2 closing
 
     // Calculate the center of mass and moment of inertia
     double cx = 0.0;
@@ -307,8 +323,10 @@ struct PlayMode : Mode {
 		glm::u8vec4 light_green = glm::u8vec4(0x70, 0xF7, 0x62, 0xff);		
 		glm::u8vec4 light_gray = glm::u8vec4(0xa1, 0xa1, 0xa1, 0xff);		
 	}colors;
-	//float particle_radius = 0.01f;
+	// float particle_radius = 0.015f;
 	float particle_radius = 0.008f;
+	// float particle_radius = 0.0055f;
+
 	// float probe_radius = 0.08f;
 	float probe_radius = 0.06f;
 	
@@ -316,15 +334,16 @@ struct PlayMode : Mode {
 
 	glm::vec2 box_min = glm::vec2(0.0f, 0.0f);
 	glm::vec2 box_max = glm::vec2(1.5f, 1.0f);
-
 	glm::vec2 axis_min = glm::vec2(0.1f, 0.05f);
 	glm::vec2 axis_max = glm::vec2(1.4f, 0.95f);
 	glm::vec2 center_axis = glm::vec2((axis_max.x-axis_min.x)/2 + axis_min.x, (axis_max.y-axis_min.y)/2 + axis_min.y);
 
+	const float k_dist = 0.1f;
+
 	//Unit lines to show division in the cartesian plane
 	float line_half_lenght = 0.015f;
 	float unit_line_spacing = 0.1f;
-
+	bool use_hand_centroid = true;
 	void reset_clay();
 	void shape_clay();
 	void reset_clay_line();
@@ -333,18 +352,18 @@ struct PlayMode : Mode {
 
 	//Particle parameters
 	const float viscosity_radius = 7.0f * particle_radius;
+	const float close_radius = 2.0f * particle_radius;
+
 	const float wall_bounce = 0.01f;
 	// const float alpha = 0.9f; //controls particle squish
 	const float alpha = 0.99f; //controls particle squish
-	const float kFriction = 0.25f; //0.1f 
+	const float kFriction = 0.45f; //0.1f 
 	const float kDamping = 0.01f; //0.05f
 	inline static constexpr float ClayTick = 0.001f;
 	
 	bool flag_switch = false;
 	glm::vec2 view_min = glm::vec2(0,0);
 	glm::vec2 view_max = glm::vec2(1024, 768);
-
-
 
 	uint32_t parabola_step = 50;
 	uint32_t fit_step = 05;
@@ -355,8 +374,6 @@ struct PlayMode : Mode {
 	double duration_acc = 0.0f;
 
 	std::chrono::_V2::system_clock::time_point matching_start_time;
-
-
 
     // Configuration map to store the key-value pairs
 	std::string file_name = "";
@@ -371,5 +388,6 @@ struct PlayMode : Mode {
 	bool time_fixed = true;
 	inline static float TIME_LIMIT = 60.0f; //given in seconds
 	inline static float TIME_LIMIT_PER_FUNCTION = 60.0f; //given in seconds
+	SpatialGrid spatial_grid = SpatialGrid(box_max.x, box_max.y, unit_line_spacing);
 
 };

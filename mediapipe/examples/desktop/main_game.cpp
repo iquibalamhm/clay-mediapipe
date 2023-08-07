@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 			}
 		}
 		// Hide mouse cursor (note: showing can be useful for debugging):
-		// SDL_ShowCursor(SDL_DISABLE);
+		SDL_ShowCursor(SDL_DISABLE);
 
 		//------------ load assets --------------
 		call_load_functions();
@@ -312,7 +312,7 @@ int main(int argc, char **argv)
 					int num_hands = (*myvector)[0];
 					if (num_hands == 1)
 					{
-						coordinates = new std::vector<int>({(*myvector)[0], (*myvector)[1], (*myvector)[2], (*myvector)[3], (*myvector)[4], (*myvector)[5], (*myvector)[6]});
+						coordinates = new std::vector<int>({(*myvector)[0], (*myvector)[1], (*myvector)[2], (*myvector)[3], (*myvector)[4], (*myvector)[5], (*myvector)[6],(*myvector)[7]});
 						event.user.data1 = coordinates;
 						SDL_PushEvent(&event);
 					}

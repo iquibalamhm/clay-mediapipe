@@ -170,6 +170,7 @@ cc_library(
 
     ],
     hdrs = [
+        "SpatialGrid.hpp",
         "Mode.hpp",
         "PlayMode.hpp",
         "Sprite.hpp",
@@ -187,7 +188,7 @@ cc_library(
         "load_save_png.hpp",
         "data_path.hpp",
         "LitColorTextureProgram.hpp",
-        "ColorTextureProgram.hpp"
+        "ColorTextureProgram.hpp",
     ],
     deps = [
         "//nest-libs:SDL",

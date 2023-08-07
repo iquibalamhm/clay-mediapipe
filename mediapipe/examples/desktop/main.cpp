@@ -194,8 +194,9 @@ int main(int argc, char **argv) {
 				std::vector<int>* coordinates = nullptr;
 				int num_hands = (*myvector)[0];
 				if (num_hands==1){
-					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],(*myvector)[6]});
+					coordinates = new std::vector<int>({(*myvector)[0],(*myvector)[1],(*myvector)[2],(*myvector)[3],(*myvector)[4],(*myvector)[5],(*myvector)[6],(*myvector)[7]});
 					event.user.data1 = coordinates;
+					std::cout<<"coordinates: "<<(*coordinates)[0]<<" "<<(*coordinates)[1]<<" "<<(*coordinates)[2]<<" "<<(*coordinates)[3]<<" "<<(*coordinates)[4]<<" "<<(*coordinates)[5]<<" "<<(*coordinates)[6]<<" "<<(*coordinates)[7]<<std::endl;
 					SDL_PushEvent(&event);
 				}
 				else if (num_hands==2){

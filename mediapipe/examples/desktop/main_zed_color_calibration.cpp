@@ -122,6 +122,14 @@ int iLowV = 163; //0
 int iHighV = 255; //255
 
 int width = 672;
+
+// Hand states enumeration
+enum HandState {
+    neutral,
+    opening,
+    closing,
+};
+
 ABSL_FLAG(std::string, calculator_graph_config_file, "",
           "Name of file containing text format CalculatorGraphConfig proto.");
 ABSL_FLAG(std::string, input_video_path, "",
@@ -155,6 +163,14 @@ cv::Mat slMat2cvMat(sl::Mat& input) {
     return cv::Mat(input.getHeight(), input.getWidth(), getOCVtype(input.getDataType()), 
             input.getPtr<sl::uchar1>(sl::MEM::CPU), input.getStepBytes(sl::MEM::CPU));
 }
+
+// Function to calculate the distance between two points
+float calculateDistance(const std::pair<float, float>& point1, const std::pair<float, float>& point2) {
+    float dx = point2.first - point1.first;
+    float dy = point2.second - point1.second;
+    return std::sqrt(std::pow(dx, 2) + std::pow(dy, 2));
+}
+
 double movingAverage(std::vector<double>& data, double value,int windowSize = 8) {
     data.push_back(value);
     if (data.size() < windowSize) {
@@ -168,6 +184,44 @@ double movingAverage(std::vector<double>& data, double value,int windowSize = 8)
     }
     data.erase(data.begin());
     return sum / windowSize;
+}
+
+void detectHandState(std::vector<float>& prevDistances, const std::pair<float, float>& thumbPos, const std::pair<float, 
+    float>& indexPos,HandState& hand_state, int windowSize = 5, float threshold = 3.0f) {
+    // 0 neutral, 1 opening, 2 closing
+    float distance = calculateDistance(thumbPos, indexPos);
+
+    // Add the current distance to the vector of previous distances
+    prevDistances.push_back(distance);
+
+    // Check if we have enough previous distances to make a decision (e.g., consider last 3 distances)
+    if (prevDistances.size() < windowSize) {
+        // Handle the case where there are not enough elements
+        std::cerr << "Error: Not enough elements to determine state: "<< windowSize << " window size." << std::endl;
+        hand_state = neutral;
+        return;
+    }
+    float sum = 0.0;
+    for (int i = 0; i < windowSize; ++i) {
+        sum += prevDistances[i];
+    }
+    // Calculate the average distance for the last <windowSize> samples
+    float avgDistance = sum / windowSize;
+    std::cout<<"distance: "<<distance<<" avg: "<<avgDistance<<" ";
+    // Check if the current distance is close enough to the average distance to be considered neutral
+    if (std::abs(distance - avgDistance) <= threshold) {
+        hand_state = neutral;
+    } else if (distance > avgDistance) {
+        hand_state = opening;
+    } else if (distance < avgDistance) {
+        hand_state = closing;
+    }
+
+    // Limit the size of the vector to store only the last 3 distances
+    if (prevDistances.size() > 3) {
+        prevDistances.erase(prevDistances.begin());
+    }
+    
 }
 
 cv::Mat slMat2cvMatGPU(sl::Mat& input) {
@@ -187,6 +241,7 @@ float median(std::vector<float> &v)
         return v[n];
     }
 }
+
 
 bool isHandActive(const std::vector<float>& landmarks, sl::Mat& point_cloud,int start_index,int num_hands,
                     int& curr_count, float& multiplier,double& distance){
@@ -266,6 +321,7 @@ bool isHandClosed(const std::vector<float>& landmarks, int start_index,int num_h
     }
 
 }
+
 
 void parseArgs(int argc, char **argv, sl::InitParameters& param);
 absl::Status RunMPPGraph(int argc, char** argv) {
@@ -415,6 +471,8 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     double t5, t6, t7, t8;
     std::vector<double> hand1_l1, hand1_l2, hand1_l3, hand1_l4;
     std::vector<double> hand2_l1, hand2_l2, hand2_l3, hand2_l4;
+    std::vector<float> hand1_finger_distances;
+    
     width = camera_config.resolution.width;
     while (grab_frames) {
         // Main Loop
@@ -728,14 +786,16 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     double t5, t6, t7, t8;
     std::vector<double> hand1_l1, hand1_l2, hand1_l3, hand1_l4;
     std::vector<double> hand2_l1, hand2_l2, hand2_l3, hand2_l4;
+    std::vector<float> hand1_finger_distances;
+
     width = camera_config.resolution.width;
-    // cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
+    cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
+    std::vector<cv::KeyPoint> keypoints;
     bool hand_1_closed = false;
     bool hand_2_closed = false;
     bool hand_1_active = false;
     bool hand_2_active = false;
     int frame_count = 0;
-    // std::vector<cv::KeyPoint> keypoints;
     bool show_image = true;
     double scale_dueto_crop = 1.0/(CROP_RATIO*2.0);
     while (grab_frames) {
@@ -832,15 +892,15 @@ absl::Status RunMPPGraph(int argc, char** argv) {
 
             //std::cout << "num keypts: " << keypoints.size() << " countours size: "<<GoodContours.size();
             // Detect blobs.
-            if (false){
+            // if (true){
             //     detector->detect( imgThresholded, keypoints);
             //     frame_count =0;
             //     std::vector<cv::KeyPoint>::const_iterator it = keypoints.begin(), end = keypoints.end();
             //     for( ; it != end; ++it ) {
             //     std::cout << "  kpt x " << it->pt.x << ", y " << it->pt.y << ", size " << it->size << "\n";
             //     }
-            }
-            else{
+            // }
+            {
                 if (GoodContours.size() == num_hands_bycolor*2){
                     std::vector<cv::Point> centers; 
                     for (int i=0; i<GoodContours.size(); i++){
@@ -850,6 +910,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                     }
                     hand_1_closed = false;
                     hand_1_active = true;
+                    
                     float center_distances = sqrt(pow(centers[0].x-centers[1].x,2)+pow(centers[0].y-centers[1].y,2));
                     //std::cout<<"center_distances: "<<center_distances<<std::endl;
                     if (center_distances > 10 && center_distances<500){
@@ -865,6 +926,14 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                         t4 = movingAverage(hand1_l2,centers[0].y * scale_dueto_crop * SCALE,2);
                         t1 = movingAverage(hand1_l3,centers[1].x * scale_dueto_crop * SCALE,2);
                         t2 = movingAverage(hand1_l4,centers[1].y * scale_dueto_crop * SCALE,2);
+                        
+                        //Get hand state
+                        std::pair index = std::make_pair(t1, t2);
+                        std::pair thumb = std::make_pair(t3, t4);
+                        HandState hand_1_state = neutral;
+                        detectHandState(hand1_finger_distances,thumb,index,hand_1_state,8);
+                        std::cout<<"Hand state: "<<hand_1_state<<" t4: "<<t4<<std::endl;
+                        myvector->push_back(hand_1_state); //pointing finger
 
                         myvector->push_back(t1); //pointing finger
                         myvector->push_back(t2);
