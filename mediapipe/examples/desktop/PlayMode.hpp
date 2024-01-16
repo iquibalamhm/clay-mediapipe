@@ -18,6 +18,8 @@
 
 #include "SpatialGrid.hpp"
 
+#include <boost/thread.hpp>
+
 struct PlayMode : Mode {
 	PlayMode();
 	virtual ~PlayMode();
@@ -43,7 +45,9 @@ struct PlayMode : Mode {
 	void detectHandState(const glm::vec2& thumbPos, const glm::vec2& pointingFingerPos, std::vector<float>& prevDistances);
 	std::string serial_port_name = "None";
     std::vector<float> prevDistances;
+	boost::thread serialThread;
 
+    // memset(buffer, 0, sizeof(buffer));
 	struct function{
 		std::string name = "";
 		std::vector<double> coeff;
@@ -156,6 +160,7 @@ struct PlayMode : Mode {
 			name = name_string;
 		}
 	};
+	// void serialThreadFunction(LibSerial::SerialPort& serial_port);
 	std::vector<double> initial_coeff = {0.0,0.0,0.0};
 	function prev_match = function(initial_coeff);
 	function to_match = function(initial_coeff);
@@ -163,6 +168,11 @@ struct PlayMode : Mode {
 
 	void parse_function(function &selected_function);
 	std::vector<double> parse_function_coeffs(std::vector<double>& coeffs_unscaled);
+
+	float minxH = 0;
+	float maxxH = 110;
+	float xH = (maxxH-minxH)/2; //opening percentage
+	float mappedxH = 0; //percentage
 
 	struct scene_order{
 		// std::vector<std::string> function_order;
@@ -233,6 +243,7 @@ struct PlayMode : Mode {
 	//First hand coordinates
 	glm::vec2 index_1_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 	glm::vec2 thumb_1_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
+	glm::vec2 center_1_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
 
 	//Second hand coordinates
 	glm::vec2 index_2_at = glm::vec2(std::numeric_limits< float >::quiet_NaN()); //in [-1,1]^2 coords
@@ -284,19 +295,23 @@ struct PlayMode : Mode {
 	bool do_rotation_left = false;
 	bool do_rotation_right = false;
 	bool do_hand_movement = false;
-
+	int count_time = 0;
 	bool particles_fixed = false;
 	bool use_viscosity = false;
+	bool use_multiplier = false;
+	bool use_molding = true;
+	bool use_moving = false;
 	bool use_close = false;
 	bool use_grid = false;
 	bool move_together = false;
-
+	bool use_haptics = false;
 
 	float err_1 = 0.0f;
 	float err_2 =0.0f;
 	bool rigid = false;
-	bool mod_1 = false;
-	bool mod_2 = true;
+	bool mod_1 = true;
+	bool mod_2 = false;
+	bool mod_3 = false;
 	int num_hands = 1;
 	bool hand_1_closed = false;
 	bool hand_2_closed = false;
@@ -305,16 +320,10 @@ struct PlayMode : Mode {
 	int hand_1_state = 0; // 0 neutral, 1 opening, 2 closing
 	int hand_2_state = 0; // 0 neutral, 1 opening, 2 closing
 
-    // Calculate the center of mass and moment of inertia
-    double cx = 0.0;
-    double cy = 0.0;
-    double cz = 0.0;
-    double m = 0.0;
-    double Ixx = 0.0;
-    double Iyy = 0.0;
-    double Izz = 0.0;
-	double I = 0.0;
+	const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+	const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
 
+	
 	struct colors{
 		glm::u8vec4 red = glm::u8vec4(0xff, 0x88, 0x88, 0xff);
 		glm::u8vec4 black = glm::u8vec4(0x08, 0x44, 0x44, 0xff);
@@ -324,12 +333,19 @@ struct PlayMode : Mode {
 		glm::u8vec4 light_gray = glm::u8vec4(0xa1, 0xa1, 0xa1, 0xff);		
 	}colors;
 	// float particle_radius = 0.015f;
-	float particle_radius = 0.008f;
+	float particle_radius = 0.007f;
 	// float particle_radius = 0.0055f;
 
 	// float probe_radius = 0.08f;
 	float probe_radius = 0.06f;
-	
+
+	//Constants for clay
+	const float kFriction = 0.45f; //0.1f 
+	const float kDamping = 0.01f; //0.05f
+	inline static constexpr float ClayTick = 0.001f;
+	const float kFrictionDamping = std::pow(kFriction, ClayTick / kDamping);
+	const float minVel = -2.0f;
+	const float maxVel = 2.0f;
 	//float neighbor_radius = 0.2f;
 
 	glm::vec2 box_min = glm::vec2(0.0f, 0.0f);
@@ -351,15 +367,12 @@ struct PlayMode : Mode {
 	double final_error = -1.0;
 
 	//Particle parameters
-	const float viscosity_radius = 7.0f * particle_radius;
+	const float viscosity_radius = 15.0f * particle_radius;
 	const float close_radius = 2.0f * particle_radius;
 
 	const float wall_bounce = 0.01f;
 	// const float alpha = 0.9f; //controls particle squish
 	const float alpha = 0.99f; //controls particle squish
-	const float kFriction = 0.45f; //0.1f 
-	const float kDamping = 0.01f; //0.05f
-	inline static constexpr float ClayTick = 0.001f;
 	
 	bool flag_switch = false;
 	glm::vec2 view_min = glm::vec2(0,0);
@@ -370,6 +383,8 @@ struct PlayMode : Mode {
 	//ad-hoc performance measurement:
 	uint32_t ticks_acc = 0;
 	uint32_t ticks_acc_filter = 0;
+	uint32_t ticks_acc_serial = 0;
+
 	std::chrono::_V2::system_clock::time_point start_time;
 	double duration_acc = 0.0f;
 
@@ -378,10 +393,11 @@ struct PlayMode : Mode {
     // Configuration map to store the key-value pairs
 	std::string file_name = "";
 
+	double small_time_diff = 0.0f;	
+	
 	bool show_function_name = true;
 	bool show_function_line = true;
 	bool show_function_line_on_finished = false;
-
 	bool show_to_match_line = false;
 	bool show_fitted_line = true;
 	bool show_to_match_line_on_finished = true;

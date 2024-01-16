@@ -312,7 +312,7 @@ int main(int argc, char **argv)
 					int num_hands = (*myvector)[0];
 					if (num_hands == 1)
 					{
-						coordinates = new std::vector<int>({(*myvector)[0], (*myvector)[1], (*myvector)[2], (*myvector)[3], (*myvector)[4], (*myvector)[5], (*myvector)[6],(*myvector)[7]});
+						coordinates = new std::vector<int>({(*myvector)[0], (*myvector)[1], (*myvector)[2], (*myvector)[3], (*myvector)[4], (*myvector)[5], (*myvector)[6],(*myvector)[7], (*myvector)[8], (*myvector)[9], (*myvector)[10]});
 						event.user.data1 = coordinates;
 						SDL_PushEvent(&event);
 					}
@@ -385,7 +385,8 @@ int main(int argc, char **argv)
 
 				// if frames are taking a very long time to process,
 				// lag to avoid spiral of death:
-				elapsed = std::min(0.1f, elapsed);
+				elapsed = std::min(0.05f, elapsed); //0.08f is the min value before start lagging
+				
 				Mode::current->update(elapsed);
 				if (!Mode::current)
 					break;

@@ -105,6 +105,8 @@
         "locale": "cpp",
         "queue": "cpp",
         "stack": "cpp",
-        "nonlinearoptimization": "cpp"
+        "nonlinearoptimization": "cpp",
+        "qr": "cpp",
+        "nnls": "cpp"
     }
 }

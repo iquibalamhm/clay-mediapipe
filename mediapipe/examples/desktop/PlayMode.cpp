@@ -19,6 +19,7 @@
 #include <vector>
 #include <eigen3/Eigen/QR>
 #include <boost/thread.hpp>
+#include <mutex>
 
 
 //File management
@@ -36,21 +37,23 @@
 // #include "spatial_grid.hpp"
 
 PlayMode::PlayMode() {
-	reset_clay();
+	// reset_clay();
 }
 
 PlayMode::~PlayMode() {
 }
 
+boost::mutex serialMutex; // Mutex for serial port access
+
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 
 	if (evt.type == SDL_KEYDOWN) {
 		if (evt.key.keysym.sym == SDLK_BACKSPACE) {
-			reset_clay();
-		} else if (evt.key.keysym.sym == SDLK_SPACE || evt.key.keysym.sym == SDLK_b) {
+			std::cout<<"reset clay from space bar"<<std::endl;
+			// reset_clay();
+		} else if (evt.key.keysym.sym == SDLK_SPACE) {
 			//tick_clay();
 			interaction = true;
-			//std::cout<<"interaction"<<std::endl;
 		} else if(evt.key.keysym.sym == SDLK_LEFT){
 			do_rotation_left = true;
 		}
@@ -58,65 +61,74 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			do_rotation_right = true;
 		}
 		else if(evt.key.keysym.sym == SDLK_r){
-			rigid = !rigid;
-		}
-		else if(evt.key.keysym.sym == SDLK_g){
-			use_grid = !use_grid;
-			std::cout<<"use_grid: "<<use_grid<<std::endl;
+			std::cout<<"reset clay from r key"<<std::endl;
+			reset_clay();
 		}
 		else if(evt.key.keysym.sym == SDLK_f){
 			particles_fixed = !particles_fixed;
 		}
-		else if(evt.key.keysym.sym == SDLK_v){
-			use_viscosity = !use_viscosity;
-			std::cout<<"viscosity: "<<use_viscosity<<std::endl;
-		}
-		else if(evt.key.keysym.sym == SDLK_a){
-			use_close = !use_close;
-			std::cout<<"use_close: "<<use_close<<std::endl;
+		else if(evt.key.keysym.sym == SDLK_h){
+			use_haptics = !use_haptics;
+			std::cout<<"use_haptics: "<<use_haptics<<std::endl;
 		}
 		else if(evt.key.keysym.sym == SDLK_t){
 			move_together = !move_together;
 			std::cout<<"move_together: "<<move_together<<std::endl;
 		}
-
-
-		else if(evt.key.keysym.sym == SDLK_s && location == scenes_mode){
-			switch (state)
-			{
-			case inside:
-				state = end;
-				append_data(file_name,{"function",current_order.functions[current_order.curr_val].name,"skipped"});
-				current_order.curr_val += 1 ;
-				if (current_order.curr_val < current_order.functions.size()){
-					prev_match.name = to_match.name;
-					parse_function(current_order.functions[current_order.curr_val]);
-
+		else if(evt.key.keysym.sym == SDLK_a){
+			use_moving = true;
+			use_molding = false;
+			std::cout<<"moving: "<<use_moving<<std::endl;
+		}
+		else if(evt.key.keysym.sym == SDLK_b){
+			use_molding = true;
+			use_moving = false;
+			std::cout<<"molding: "<<use_molding<<std::endl;
+		}
+		else if(evt.key.keysym.sym == SDLK_s){
+			if(location == scenes_mode){
+				switch (state)
+				{
+				case inside:
 					state = end;
+					append_data(file_name,{"function",current_order.functions[current_order.curr_val].name,"skipped"});
+					current_order.curr_val += 1 ;
+					if (current_order.curr_val < current_order.functions.size()){
+						prev_match.name = to_match.name;
+						parse_function(current_order.functions[current_order.curr_val]);
+
+						state = end;
+					}
+					std::cout<<"skipped"<<std::endl;
+					break;
 				}
-				std::cout<<"skipped"<<std::endl;
-				break;
 			}
 		}
-		else if(evt.key.keysym.sym == SDLK_c && location == scenes_mode){	
-			switch (state)
-			{
-			case begin:
-				state = inside;
-				matching_start_time = std::chrono::high_resolution_clock::now();
-				std::cout<<"initialize chrono change"<<std::endl;
-				break;
-			case end:
-				state = begin;
-				if (current_order.curr_val >= current_order.functions.size()){
-					std::cout<<"done with matching"<<std::endl;
-					location = donemode;
-					Mode::current = shared_from_this();
+		else if (evt.key.keysym.sym == SDLK_c){
+			interaction = true;
+
+		}
+		else if (evt.key.keysym.sym == SDLK_k){
+			if(location == scenes_mode){
+				switch (state)
+				{
+				case begin:
+					state = inside;
+					matching_start_time = std::chrono::high_resolution_clock::now();
+					std::cout<<"initialize chrono change"<<std::endl;
+					break;
+				case end:
+					state = begin;
+					if (current_order.curr_val >= current_order.functions.size()){
+						std::cout<<"done with matching"<<std::endl;
+						location = donemode;
+						Mode::current = shared_from_this();
+					}
+					break;
 				}
-				break;
 			}
 		}
-		else if(evt.key.keysym.sym == SDLK_d){
+		else if(evt.key.keysym.sym == SDLK_o){
 			location = donemode;
 			Mode::current = shared_from_this();
 			//Mode::set_current(std::make_shared<DoneMode>(done_time,err_1));
@@ -129,7 +141,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		if(evt.key.keysym.sym == SDLK_LEFT){
 			do_rotation_left = false;
 		}
-		else if (evt.key.keysym.sym == SDLK_SPACE || evt.key.keysym.sym == SDLK_b) {
+		else if (evt.key.keysym.sym == SDLK_SPACE || evt.key.keysym.sym == SDLK_c) {
 			interaction = false;
 			reset_motor();
 			//std::cout<<"no interaction"<<std::endl;
@@ -164,16 +176,21 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		std::vector<int>* coordinates = static_cast<std::vector<int>*>(evt.user.data1);
 		num_hands  = (*coordinates)[0];
 		int x1,x2,x3,x4,y1,y2,y3,y4;
+		int c1_x,c1_y,c2_x,c2_y;
+		std::cout<<"user event"<<std::endl;
 		if (num_hands == 1){
 			hand_1_closed = (*coordinates)[1];
 			hand_1_active = (*coordinates)[2];
 			hand_1_state = (*coordinates)[3];
-			std::cout<<"closed: "<<hand_1_closed<<"  active:"<<hand_1_active<<" state: "<<hand_1_state<<std::endl;
+			// std::cout<<"closed: "<<hand_1_closed<<"  active:"<<hand_1_active<<" state: "<<hand_1_state<<std::endl;
 			x1 = (*coordinates)[4];
 			y1 = (*coordinates)[5];
 			x2 = (*coordinates)[6];
 			y2 = (*coordinates)[7];
-			std::cout<<"x1: "<<x1<<"  y1:"<<y1<<"  x2:"<<x2<<"  y2:"<<y2<<std::endl;
+			probe_rot = float((*coordinates)[8])/1000.0f; //rotation angle of the probe
+			c1_x = (*coordinates)[9];
+			c1_y = (*coordinates)[10];
+			// std::cout<<"x1: "<<x1<<"  y1:"<<y1<<"  x2:"<<x2<<"  y2:"<<y2<<std::endl;
 		}
 		else{
 			hand_1_closed = (*coordinates)[1];
@@ -202,6 +219,8 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		index_1_at.y = 1.0f - 2.0f * (y1 + 0.5f) / float(window_size.y);
 		thumb_1_at.x = -1.0f + 2.0f * (x2 + 0.5f) / float(window_size.x);
 		thumb_1_at.y = 1.0f - 2.0f * (y2 + 0.5f) / float(window_size.y);
+		center_1_at.x = -1.0f + 2.0f * (c1_x + 0.5f) / float(window_size.x);
+		center_1_at.y = 1.0f - 2.0f * (c1_y + 0.5f) / float(window_size.y);
 		do_hand_movement = true;
 	}
 
@@ -233,7 +252,6 @@ float get_error_from_l2norm(std::vector<double> &coeff,uint8_t &order, std::vect
 		}
 	}
 	return l2_norm(err);
-
 }
 
 void PlayMode::polyfit(const std::vector<double> &x, const std::vector<double> &y, std::vector<double> &coeff,float &l2_error,uint8_t order){
@@ -435,16 +453,16 @@ void PlayMode::enter_scene(float elapsed) {
                 Mode::current = shared_from_this();
 				std::vector<std::vector<double>> function_coeffs = {
 					{0.0,0.0,-3.0}, //y = ax^2 + bx + c
-					{0.0,0.0,0.0},
-					{0.0,0.0,1.0},
-					{0.0,0.0,2.0},
+				};
+				std::vector<std::vector<double>> function_coeffs = {
+					{0.0,1.0,-2.0}, //y = ax^2 + bx + c
 				};
 				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);
 				time_fixed = true;
-
 				reset_clay();
             });
+			
 			add_choice("Line Slope", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene  = line_slope;
@@ -454,12 +472,16 @@ void PlayMode::enter_scene(float elapsed) {
 				show_function_name = false;
 
                 Mode::current = shared_from_this();
+				// std::vector<std::vector<double>> function_coeffs = {
+				// 	{0,-2.0,0}, //ax^2 + bx + c
+				// 	{0,-1.0,0},
+				// 	{0,1.0,0},
+				// 	{0,2.0,0.0},
+				// };
 				std::vector<std::vector<double>> function_coeffs = {
-					{0,-2.0,0}, //ax^2 + bx + c
-					{0,-1.0,0},
-					{0,1.0,0},
-					{0,2.0,0.0},
+					{0,2.0,1.0},
 				};
+				
 				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);
 				std::cout<<"function parsed slope"<<std::endl;
@@ -475,10 +497,10 @@ void PlayMode::enter_scene(float elapsed) {
 				show_to_match_line = false;
                 Mode::current = shared_from_this();
 				std::vector<std::vector<double>> function_coeffs = {
-					{0.5,0,0}, //ax^2 + bx + c
+					// {0.5,0,0}, //ax^2 + bx + c
 					{0.1,0,0},
-					{-0.1,0,0},
-					{-0.5,0,0},
+					// {-0.1,0,0},
+					// {-0.5,0,0},
 				};
 				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);				
@@ -617,7 +639,6 @@ void PlayMode::detectHandState(const glm::vec2& thumbPos, const glm::vec2& point
         hand_state = neutral;
         return;
     }
-
     // Calculate the average distance for the last 3 samples
     float avgDistance = (prevDistances[prevDistances.size() - 1] +
                          prevDistances[prevDistances.size() - 2] +
@@ -631,7 +652,6 @@ void PlayMode::detectHandState(const glm::vec2& thumbPos, const glm::vec2& point
     } else {
         hand_state = neutral;
     }
-
     // Limit the size of the vector to store only the last 3 distances
     if (prevDistances.size() > 3) {
         prevDistances.erase(prevDistances.begin());
@@ -651,8 +671,9 @@ void PlayMode::update(float elapsed) {
 			//there is no menu displayed! Make one:
 			enter_scene(elapsed);
 	}
-	
 	auto before = std::chrono::high_resolution_clock::now();
+	auto curr_before = std::chrono::high_resolution_clock::now();
+
 	uint32_t ticks = 0;
 	while (time_acc > 0.0f) {
 		time_acc -= ClayTick;
@@ -661,6 +682,18 @@ void PlayMode::update(float elapsed) {
 		// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
 		// 	// std::cout<<"probe_pinch"<<std::endl;
 		// }
+		{
+			if (serial_port_name == "None"){
+				//Priority order is important
+				// if (open_probes == true || hand_1_state == 1){
+				// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
+				if (do_pinch == true) {
+					probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
+				} else{
+					probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
+				}		
+			}
+		}
 		if (do_rotation_left) {
 			probe_rot += 0.001f;
 		}
@@ -671,25 +704,27 @@ void PlayMode::update(float elapsed) {
 			//std::cout<<"hand found"<<std::endl;
 			//std::cout<<"index_1_at: "<<index_1_at.x<<" "<<index_1_at.y<<"  thumb_1_at: "<<thumb_1_at.x<<" "<<thumb_1_at.y<<std::endl;
 			glm::vec2 at_1, at_2;
+			glm::vec2 at_center;
+			
 			at_2.x = (index_1_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
 			at_2.y = (index_1_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
 			at_1.x = (thumb_1_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
 			at_1.y = (thumb_1_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
 
-			glm::vec2 at_center;
-
-			at_center.x = (at_2.x + at_1.x) / 2.0f;
-			at_center.y = (at_2.y + at_1.y) / 2.0f;
-
+			at_center.x = (center_1_at.x - world_to_clip[3][0]) / world_to_clip[0][0];
+			at_center.y = (center_1_at.y - world_to_clip[3][1]) / world_to_clip[1][1]; 			
+			// at_center.x = (at_2.x + at_1.x) / 2.0f;
+			// at_center.y = (at_2.y + at_1.y) / 2.0f;
 			//The number 10.f is the min gap that can happen between the probes
+			// glm::vec2 gap = glm::mix(1.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
 			glm::vec2 gap = glm::mix(1.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
 			
 			if (num_hands == 1 && (hand_1_closed==0)){
 				if (use_hand_centroid){
-					probe_rot = calculateRotationAngle(at_1, at_2) - M_PI/2;
-					std::cout<<"probe_rot: "<<probe_rot<<" ";
-					glm::vec2 gap = glm::mix(40.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
-					// std::cout<<"probe pinch: "<<probe_pinch<<" gap: "<<gap.x<<" "<<gap.y<<std::endl;
+					// probe_rot = calculateRotationAngle(at_1, at_2) - M_PI/2;
+					// std::cout<<"probe_rot: "<<probe_rot<<" ";
+					glm::vec2 gap = glm::mix(50.0f * particle_radius + 2.5f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
+					// std::cout<<"gap: "<<gap.x<<" "<<gap.y<<"probe_pinch: "<<probe_pinch<<std::endl;
 					if (probes.size() != 2) {
 						probes.assign(2, Probe());
 						probes[0].pos = at_center - 0.5f * gap;
@@ -697,7 +732,10 @@ void PlayMode::update(float elapsed) {
 					}
 					probes[0].target = at_center - 0.5f * gap;
 					probes[1].target = at_center + 0.5f * gap;
-
+					if(probes[0].touching == false){
+					}
+					if(probes[1].touching == false){
+					}
 				}
 				else{
 					if (probes.size() != 2) {
@@ -805,7 +843,7 @@ void PlayMode::update(float elapsed) {
 			at.y = (mouse_at.y - world_to_clip[3][1]) / world_to_clip[1][1];
 
 			//glm::vec2 gap = glm::mix(10.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
-			glm::vec2 gap = glm::mix(30.0f * particle_radius + 2.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
+			glm::vec2 gap = glm::mix(30.0f * particle_radius + 3.0f * probe_radius, 2.0f * particle_radius + 2.0f * probe_radius, probe_pinch) * glm::vec2(-std::sin(probe_rot), std::cos(probe_rot));
 			// std::cout<<"probe pinch: "<<probe_pinch<<" gap: "<<gap.x<<" "<<gap.y<<std::endl;
 			if (probes.size() != 2) {
 				probes.assign(2, Probe());
@@ -813,10 +851,12 @@ void PlayMode::update(float elapsed) {
 				probes[1].pos = at + 0.5f * gap;
 				
 			}
-			probes[0].target = at - 0.5f * gap;
-			
-			probes[1].target = at + 0.5f * gap;
-			
+				probes[0].target = at - 0.5f * gap;
+				probes[1].target = at + 0.5f * gap;
+			if(probes[0].touching == false){
+			}
+			if(probes[1].touching == false){
+			}
 			if (interaction==false){
 				//std::cout<<"interaction false "<<std::endl;
 				probes[0].active = 0;
@@ -836,8 +876,49 @@ void PlayMode::update(float elapsed) {
 	auto after = std::chrono::high_resolution_clock::now();
 	ticks_acc += ticks;
 	ticks_acc_filter += ticks;
+	//Added because mutex is failling
 	duration_acc += std::chrono::duration< double >(after - before).count();
+	if (serial_port_name != "None"){
+		auto curr_after = std::chrono::high_resolution_clock::now();
+		
+		small_time_diff += std::chrono::duration< double >(curr_after - curr_before).count();
+		// std::cout<<"small_time_diff1: "<<small_time_diff<<std::endl;
+		// if (small_time_diff > 0.05f) { //30 hz
+		if (small_time_diff > 0.05f) { //30 hz
 
+			curr_before = curr_after;
+			std::string readfloat = "";
+			// {
+			//     boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
+			// ... Read data from serial port ...
+			serial_port.Write("3l");
+			std::string read_byte_1;
+			// Read 4 bytes from the serial port
+			std::string bytesRead;
+			char start;
+			serial_port.ReadByte(start); // Leave room for null-terminator
+			if (start == 'p'){
+				char temp;
+				serial_port.ReadByte(temp);
+				while(temp != 'l'){
+					readfloat += temp;
+					serial_port.ReadByte(temp);
+				}
+				//received number
+				if(readfloat.size()>0){
+					serial_port.Write("1l");
+					// } // The lock is automatically released when 'lock' goes out of scope
+					// Process the received data
+					float receivedFloat = 0;
+					std::istringstream(readfloat) >> receivedFloat;
+					// ... Update variables ...
+					xH = receivedFloat;
+					probe_pinch = glm::clamp(1 - (xH - minxH) / (maxxH - minxH),0.0f,1.0f);
+				}
+			}
+					small_time_diff = 0.0f;
+		}
+	}
 	if (ticks_acc > 5.0f / ClayTick) {
 		double ms_per_tick = duration_acc * 1000.0f / ticks_acc;
 		std::cout << "On " << particles.size() << " particles, ran " << ticks_acc << " ticks in " << duration_acc << " seconds. That's " << ms_per_tick << " ms per tick, or " << (1000.0f * ClayTick) / ms_per_tick << "x real time." << std::endl;
@@ -846,19 +927,64 @@ void PlayMode::update(float elapsed) {
 	}
 }
 
+void serialThreadFunction(LibSerial::SerialPort& serial_port,float &xh,float &probe_pinch, float &minxH, float &maxxH) {
+    // Configure and open the serial port
+    // serial_port.SetBaudRate(LibSerial::BaudRate::BAUD_9600);
+    // ... other serial port configuration
+	std::cout<<"serial called"<<std::endl;
+    while (true) {
+        // Perform your serial communication here
+        // ...
+		std::string readfloat = "";
+		// {
+        //     boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
+            // ... Read data from serial port ...
+			serial_port.Write("3l");
+			std::string read_byte_1;
+			// Read 4 bytes from the serial port
+			std::string bytesRead;
+			char start;
+			serial_port.ReadByte(start); // Leave room for null-terminator
+			if (start == 'p'){
+				char temp;
+				serial_port.ReadByte(temp);
+				while(temp != 'l'){
+					readfloat += temp;
+					serial_port.ReadByte(temp);
+				}
+			}
+        // } // The lock is automatically released when 'lock' goes out of scope
+        // Process the received data
+		float receivedFloat = 0;
+		std::istringstream(readfloat) >> receivedFloat;
+        // ... Update variables ...
+		xh = receivedFloat;
+		probe_pinch = glm::clamp(1 - (xh - minxH) / (maxxH - minxH),0.0f,1.0f);
+		// std::cout<<"xh: "<<xh<<" probe_pinch: "<<probe_pinch<<std::endl;
+		boost::this_thread::sleep_for(boost::chrono::milliseconds(32)); // Sleep for 16ms (approximately 60 Hz)
+	}
+}
+
 void PlayMode::init_serial(std::string port_name){
 	// Open the hardware serial ports.
 	serial_port_name = port_name;
+  	
 
 	if (serial_port_name != "None"){
 		serial_port.Open(port_name);
 		//serial_stream.Open( "/dev/ttyACM1" );
 		// Set the baud rates.
-		serial_port.SetBaudRate( LibSerial::BaudRate::BAUD_115200 );
-		serial_port.Write("i0l");
+		// serial_port.SetBaudRate( LibSerial::BaudRate::BAUD_115200 );
+    	serial_port.SetBaudRate(LibSerial::BaudRate::BAUD_9600);
+		
 		std::string read_byte_1;
 		//serial_port.Read(read_byte_1,19);
 		std::cout<<"serial port opened "<<port_name<<std::endl;
+		
+		// Create a thread for serial communication
+		// serialThread = boost::thread(serialThreadFunction, std::ref(serial_port),std::ref(xH),std::ref(probe_pinch),std::ref(minxH),std::ref(maxxH));
+		// serial_port.Write("i0l");
+		
 	}
 }
 void PlayMode::init_session_order(const std::string& filename, std::vector<std::string>& strings, std::vector<std::vector<double>>& coeffs) {
@@ -1039,10 +1165,10 @@ void PlayMode::parse_function(function &selected_function){
 			tempy3 = tempy3 * unit_line_spacing + center_axis.y;
 			glm::vec2 start,end,middle;
 			double A, B, C;
-			std::cout<<"New origin: ("<<center_axis.x<<","<<center_axis.y<<")"<<std::endl;
-			std::cout << "Coefficients real: {" << selected_function.real_coeff[0]
-			 << ", " << selected_function.real_coeff[1] << ", " << 
-			 selected_function.real_coeff[2] << "}" << std::endl;
+			// std::cout<<"New origin: ("<<center_axis.x<<","<<center_axis.y<<")"<<std::endl;
+			// std::cout << "Coefficients real: {" << selected_function.real_coeff[0]
+			// 	<< ", " << selected_function.real_coeff[1] << ", " << 
+			//  	selected_function.real_coeff[2] << "}" << std::endl;
 			start = glm::vec2(tempx1, tempy1);
 			end = glm::vec2(tempx2, tempy2);
 			middle = glm::vec2(tempx3, tempy3);
@@ -1083,7 +1209,12 @@ void PlayMode::close_serial(){
 		//serial_port.Read(read_byte_1,19);
 		serial_port.Close();
 		std::cout<<"serial port closed "<<read_byte_1;
+	    
+		// Clean up and join the serial thread
+    	serialThread.join();
+	
 	}
+	
 }
 void PlayMode::reset_motor(){
 	// Close the serial ports
@@ -1283,13 +1414,28 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 						glm::vec3(0.0f, 0.05f, 0.0f),
 						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 				}
+				if (use_molding){
+					lines.draw_text("MOLDING",
+						glm::vec3(axis_max.x-0.4, 1.025f, 0.0f), //Start position
+						glm::vec3(0.1f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.1f, 0.0f),
+						colors.green);
+				}
+				else if(use_moving){
+					lines.draw_text("MOVING",
+						glm::vec3(axis_max.x-0.4, 1.025f, 0.0f), //Start position
+						glm::vec3(0.1f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.1f, 0.0f),
+						colors.green);
+				}
+
 				//draw particles
 				for (auto const &p : particles) {
 					draw_circle(p.pos, particle_radius, colors.green);
 					xs.push_back((p.pos[0]-center_axis.x)*(1/unit_line_spacing));
 					ys.push_back((p.pos[1]-center_axis.y)*(1/unit_line_spacing));
 				}
-
+				
 				//GET fitted line
 				{
 					if (ticks_acc % fit_step == 0){
@@ -1433,9 +1579,6 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					}
 					final_error = get_error_from_l2norm(coeff_temp,curr_order,
 						boost::ref(err), boost::ref(xs), boost::ref(ys)) * unit_line_spacing;
-
-					// std::cout<<coeff_temp[0]<<" "<<coeff_temp[1]<<" "<<coeff_temp[2]<<" final error "<<final_error<<std::endl;
-					// std::cout<<"final error "<<final_error<<"order "<<std::to_string(curr_order)<<" or"<<std::endl;
 
 					if (curr_time > TIME_LIMIT_PER_FUNCTION){
 						oss.str("");  // Clear the ostringstream
@@ -1602,6 +1745,7 @@ void PlayMode::reset_clay() {
 	for (auto& particle : particles) {
 		spatial_grid.addParticle(&particle);
 	}
+	std::cout<<"Particles set to start position"<<std::endl;
 }
 
 void PlayMode::shape_clay() {
@@ -1658,305 +1802,42 @@ glm::vec2 toGlm(const Eigen::Vector2f& v) {
 //     );
 // }
 void PlayMode::tick_clay() {
-	const float kTimeStep = 0.01f;
-    const float kElasticity = 0.9f;
-    const float kFriction = 0.5f;
-	if (rigid==true){
-		//rigid body: simulation
-		//step as per velocity:
-		std::vector< glm::vec2 > old_pos;
-		old_pos.reserve(particles.size());
-		for (auto &p : particles) {
-			old_pos.emplace_back(p.pos);
-			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
-			p.vel *= std::pow(0.05f, ClayTick / 0.01f); //friction / damping better performandce
-			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
-			p.pos += p.vel * ClayTick;
-		}
-		//probe targets:
-		for (auto &p : probes) {
-			float len = glm::length(p.target - p.pos);
-			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
-			if (new_len <= 0.0f) {
-				p.pos = p.target;
-			} else {
-				p.pos += (p.target - p.pos) * (new_len / len);
-			}
-			p.pos = p.target;
-		}
-		//particles vs particles (the slow way):
 
-		float alpha = 0.1f; //controls particle squish
-		for (auto &p : particles) {
-			for (auto &p2 : particles) {
-				if (&p == &p2) break;
-				glm::vec2 to = p2.pos - p.pos;
-				float len2 = glm::length2(to);
-				if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
-					glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
-					p.pos -= alpha * 0.5f * step;
-					p2.pos += alpha * 0.5f * step;
-				}
-			}
-		}
-
-		// Collect all the active probes
-		std::vector<Probe> active_probes;
-		for (auto& probe : probes) {
-			if (probe.active) {
-				active_probes.push_back(probe);
-			}
-		}
-
-		if (active_probes.size() < 1) {
-			std::cout<<"No active probes"<<std::endl;
-			return;
-		}
-
-		// Compute the merged indices of the particles within all the active probes' radii
-		std::vector<size_t> indices;
-		for (size_t i = 0; i < particles.size(); i++) {
-			glm::vec2 pos = particles[i].pos;
-			bool in_radius = true;
-			for (auto& probe : active_probes) {
-				float dist = glm::distance(pos, probe.pos);
-				if (dist < probe_radius) {
-					indices.push_back(i);
-				}
-			}
-			// if (in_radius) {
-			// 	indices.push_back(i);
-			// }
-		}
-
-		if (indices.size() < 3) {
-			//std::cout<<"No touching particles"<<std::endl;
-			return;
-		}
-		// else{
-		// 	std::cout<<"Touching particles"<<std::endl;
-		// }
-
-		// Compute the center of mass of the particles within all the active probes' radii
-		Eigen::Vector2f center_of_mass(0.0f, 0.0f);
-		float total_mass = 0.0f;
-		for (auto i : indices) {
-			float mass = 1.0f;  // All particles have the same mass
-			center_of_mass += mass * Eigen::Vector2f(particles[i].pos.x, particles[i].pos.y);
-			total_mass += mass;
-		}
-		center_of_mass /= total_mass;
-
-		// Compute the merged covariance matrix of the particles within all the active probes' radii
-		Eigen::Matrix2f covariance_matrix = Eigen::Matrix2f::Zero();
-		for (auto i : indices) {
-			float mass = 1.0f;  // All particles have the same mass
-			Eigen::Vector2f p_i(particles[i].pos.x, particles[i].pos.y);
-			Eigen::Vector2f delta_p = p_i - center_of_mass;
-			covariance_matrix += mass * delta_p * delta_p.transpose();
-		}
-
-		// Compute the singular value decomposition of the merged covariance matrix
-		Eigen::JacobiSVD<Eigen::Matrix2f> svd(covariance_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-		// Compute the optimal rotation and translation
-		Eigen::Matrix2f R = svd.matrixV() * svd.matrixU().transpose();
-		Eigen::Vector2f t = Eigen::Vector2f::Zero();
-		for (auto& probe : active_probes) {
-			t += toEigen(probe.target) - R * center_of_mass - toEigen(probe.pos);
-		}
-		t /= active_probes.size();
-
-		// Update the position of the particles and the probes
-		for (auto &p : particles) {
-			glm::vec2 p_i = p.pos;
-			Eigen::Vector2f new_pos = R * Eigen::Vector2f(p_i.x, p_i.y) - 0.001f * t;
-			p.pos.x = new_pos[0];
-			p.pos.y = new_pos[1];
-		}
-		for (auto &probe : active_probes) {
-			glm::vec2 pr = probe.pos;
-			probe.pos = toGlm(R * toEigen(pr) + 0.001f * t);
-		}
-
-		//estimate velocity from motion:
-		for (uint32_t i = 0; i < particles.size(); ++i) {
-			auto &p = particles[i];
-			p.vel = (p.pos - old_pos[i]) / ClayTick;
-		}
-		
-
-		
-	// 	}
-	}
-	else if(particles_fixed){
-		std::vector< glm::vec2 > old_pos;
-		old_pos.reserve(particles.size());
-
-		// //step as per velocity:
-		// for (auto &p : particles) {
-		// 	old_pos.emplace_back(p.pos);
-		// 	//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
-		// 	p.vel *= std::pow(kFriction, ClayTick / kDamping); //friction / damping better performandce
-		// 	//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
-		// 	p.pos += p.vel * ClayTick;
-		// }
-
-		//probe targets:
-		for (auto &p : probes) {
-			float len = glm::length(p.target - p.pos);
-			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
-			if (new_len <= 0.0f) {
-				p.pos = p.target;
-			} else {
-				p.pos += (p.target - p.pos) * (new_len / len);
-			}
-			p.pos = p.target;
-		}
-
-		//particles vs particles (the slow way):
-		touching = false;
-		float dist = 0.0f;
-		for (auto &p : particles) {
-			// for (auto &p2 : particles) {
-			// 	if (&p == &p2) break;
-			// 	glm::vec2 to = p2.pos - p.pos;
-			// 	float len2 = glm::length2(to);
-			// 	if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
-			// 		glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
-			// 		p.pos -= alpha * 0.5f * step;
-			// 		p2.pos += alpha * 0.5f * step;
-			// 	}
-			// }
-			for (auto &p2 : probes) {
-				if (p2.active == false) continue;
-				glm::vec2 to = p2.pos - p.pos;
-				float len2 = glm::length2(to);
-				const float near = particle_radius + probe_radius;
-				const float near2 = near * near;
-				if (len2 > 0.0f && len2 < near2) {
-					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
-					// p.pos -= 0.5f * step;
-					p2.pos += 0.5f * step;
-					//dist = glm::length2(probes[0].pos-probes[1].pos);
-					//touching = true;
-				}
-				if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
-					touching = true;
-				}
-			}
-		}
-		std::stringstream stream;
-		stream << std::fixed << std::setprecision(0) << dist*10000;
-		std::string s = stream.str();
-		//Count the continous number of no touchs
-		const int cycleThreshold = 5;
-		if (serial_port_name != "None"){
-			std::string read_byte_1;
-			if(touching != isActive) { 
-				std::string str;
-				std::cout<<"toggle"<<std::endl;
-				isActive = touching;
-				if (filter_signal==false){
-					if (touching) {
-						std::cout << "Writing Signal is true!" << std::endl;
-						// Reset the cycle count if the signal is true
-						ticks_acc_filter = 0;
-						str.append("i1l");
-						serial_port.Write(str);
-					} else {
-						// Increment the cycle count if the signal is false
-						//ticks_acc++;
-						// Check the cycle count against the threshold value
-						std::cout << "Writing Signal is false." << std::endl;
-						str.append("i0l");
-						serial_port.Write(str);
-					}
-				}
-				else {
-					if (touching) {
-						std::cout << "Writing Signal is true!" << std::endl;
-						// Reset the cycle count if the signal is true
-						ticks_acc_filter = 0;
-						str.append("i1l");
-						serial_port.Write(str);
-					} else {
-						// Increment the cycle count if the signal is false
-						//ticks_acc++;
-						// Check the cycle count against the threshold value
-						if (ticks_acc_filter <= cycleThreshold) {
-							std::cout << "Writing Assuming signal is true." << std::endl;
-							// Reset the cycle count if the threshold is reached
-							ticks_acc_filter = 0;
-							str.append("i1l");
-							serial_port.Write(str);
-
-						}else{
-							std::cout << "Writing Signal is false." << std::endl;
-							str.append("i0l");
-							serial_port.Write(str);
-						}
-					}
-				}
-			}
-			// if(ticks_acc_filter>1000 && touching == false){
-			// 	ticks_acc_filter = 0;
-			// 	std::cout << "Timeout Writing Signal is false." << std::endl;
-			// 	serial_port.Write("i0l");
-			// 	//std::cout<<"reset"<<std::endl;
-			// }
-		}
-	
-		// //estimate velocity from motion:
-		// for (uint32_t i = 0; i < particles.size(); ++i) {
-		// 	auto &p = particles[i];
-		// 	p.vel = (p.pos - old_pos[i]) / ClayTick;
-		// }
-
-		// //viscosity (the slow way):
-		// for (auto &p : particles) {
-		// 	for (auto &p2 : particles) {
-		// 		if (&p == &p2) break;
-		// 		glm::vec2 to = p2.pos - p.pos;
-		// 		float len2 = glm::length2(to);
-		// 		const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
-		// 		const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
-		// 		if (len2 > 0.0f && len2 < outer2) {
-		// 			float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
-		// 			glm::vec2 avg = 0.5f * (p2.vel + p.vel);
-		// 			p.vel += (avg - p.vel) * amt;
-		// 			p2.vel += (avg - p2.vel) * amt;
-		// 		}
-		// 	}
-		// }
-	}
-	else if(mod_2){
+	if (true){
 		std::vector< glm::vec2 > old_pos;
 		old_pos.reserve(particles.size());
 		glm::vec2 max_vel  = glm::vec2(0.0f,0.0f);
 		//step as per velocity:
+
 		for (auto &p : particles) {
-			old_pos.emplace_back(p.pos);
-			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
-			// p.vel = glm::min(p.vel, glm::vec2(2.0f,2.0f));
-			p.vel = glm::clamp(p.vel, glm::vec2(-2.0f,-2.0f), glm::vec2(2.0f,2.0f));
-			p.vel *= std::pow(kFriction, ClayTick / kDamping); //friction / damping better performandce
-			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			// old_pos.emplace_back(p.pos);
+			old_pos.push_back(p.pos);
+			p.vel = glm::clamp(p.vel, glm::vec2(minVel, minVel), glm::vec2(maxVel, maxVel));
+			// Round velocity components to zero if significantly small
+            const float velocityThreshold = 0.001f;
+            if (std::abs(p.vel.x) < velocityThreshold) {
+                p.vel.x = 0.0f;
+            }
+            if (std::abs(p.vel.y) < velocityThreshold) {
+                p.vel.y = 0.0f;
+            }			
+			p.vel *= kFrictionDamping; //friction / damping better performance
 			p.pos += p.vel * ClayTick;
+
 		}
-		// if(max_vel.x > 1.0 || max_vel.y > 1.0){
-		// 	std::cout<<"max vel "<<max_vel.x<<" "<<max_vel.y<<std::endl;
-		// }
 		//probe targets:
+		const float deltaTime = ClayTick / 0.5f;
+		const float epsilon = 0.001f; // A small value to handle floating-point precision issues
 		for (auto &p : probes) {
-			float len = glm::length(p.target - p.pos);
-			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
-			if (new_len <= 0.0f) {
+			glm::vec2 delta = p.target - p.pos;
+			float len = glm::length(delta);
+			float new_len = std::pow(0.5f, deltaTime) * len - deltaTime;
+			if (new_len < epsilon) {
 				p.pos = p.target;
 			} else {
-				p.pos += (p.target - p.pos) * (new_len / len);
+				p.pos += delta * (new_len / len);
 			}
-			p.pos = p.target;
+			// p.pos = p.target;
 		}
 		//particles vs world:
 		for (auto &p : particles) {
@@ -1989,18 +1870,205 @@ void PlayMode::tick_clay() {
 				}
 			}
 		}
-		//particles vs particles (the slow way):
 		touching = false;
 		for (auto &p2 : probes) {
 			p2.touching = false;
 		}
-		float dist = 0.0f;
-		float alpha_probe = 0.15f;
-		// std::cout<<"mod2"<<std::endl;
+		// const float dist = 0.0f;
+		const float alpha_probe = 0.15f;
+		// probe_pinch = glm::clamp(probe_pinch, 0.0f, 1.0f);
+		const int cycleThreshold = 5;
+		glm::vec2 avg_step = glm::vec2(0.0f,0.0f);
+		int touch_count = 0;
+		for (auto &	p : particles) {
+			for (auto &p2 : particles) {
+					if (&p == &p2) break;
+					glm::vec2 to = p2.pos - p.pos;
+					float len2 = glm::length2(to);
+					if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+						glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+						p.pos -= alpha * 0.5f * step;
+						p2.pos += alpha * 0.5f * step;
+					}
+			}
+			for (auto &p2 : probes) {
+				if (p2.active == false) continue;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float near = particle_radius + probe_radius;
+				const float near2 = near * near;
+				if (len2 > 0.0f && len2 < near2) {
+					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+					p.pos -= 0.5f * step;
+					p2.pos += 0.5f * step;
+					avg_step += 0.5f * step;
+					touch_count++;
+				}
+				if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+					p2.touching = true;
+					touching = true;
+				}
+			}
+		}	
+		// const auto vel_damped = 0.015f * avg_step;
+		const auto vel_damped = 0.05f * avg_step;
+		if (use_moving == true){
+			if(touch_count > 0){
+				// avg_step /= touch_count;
+				for (auto &p : particles) {
+					p.pos -= vel_damped;
+				}
+			}
+		}
+
+		//estimate velocity from motion:
+		for (uint32_t i = 0; i < particles.size(); ++i) {
+			auto &p = particles[i];
+			p.vel = (p.pos - old_pos[i]) / ClayTick;
+		}
+		
+		//viscosity (the slow way):
+		glm::vec2 avg_vel = glm::vec2(0.0f, 0.0f);
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+				const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+				if (len2 > 0.0f && len2 < outer2) {
+					float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+					glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+					p.vel += (avg - p.vel) * amt;
+					p2.vel += (avg - p2.vel) * amt;
+				}
+			}
+		}
+		
+		if (serial_port_name != "None"){
+			std::string read_byte_1;
+			if(touching != isActive) { 
+				std::string str;
+				std::cout<<"toggle"<<std::endl;
+				isActive = touching;
+				{
+					// boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
+					if (touching) {
+						std::cout << "Writing Signal is true!" << std::endl;
+						// Reset the cycle count if the signal is true
+						ticks_acc_filter = 0; 
+						str.append("i1l");
+						serial_port.Write(str);
+					} else {
+						// Increment the cycle count if the signal is false
+						// Check the cycle count against the threshold value
+						std::cout << "Writing Signal is false." << std::endl;
+						str.append("i0l");
+						serial_port.Write(str);
+					}
+
+				}
+			}
+		}
+		
+	}
+	else if (false){
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+		glm::vec2 max_vel  = glm::vec2(0.0f,0.0f);
+		//step as per velocity:
+		const float kFrictionDamping = std::pow(kFriction, ClayTick / kDamping);
+		const float minVel = -2.0f;
+		const float maxVel = 2.0f;
+		for (auto &p : particles) {
+			// old_pos.emplace_back(p.pos);
+			old_pos.push_back(p.pos);
+			p.vel = glm::clamp(p.vel, glm::vec2(minVel, minVel), glm::vec2(maxVel, maxVel));
+			// Round velocity components to zero if significantly small
+            const float velocityThreshold = 0.001f;
+            if (std::abs(p.vel.x) < velocityThreshold) {
+                p.vel.x = 0.0f;
+            }
+            if (std::abs(p.vel.y) < velocityThreshold) {
+                p.vel.y = 0.0f;
+            }			
+			p.vel *= kFrictionDamping; //friction / damping better performance
+			p.pos += p.vel * ClayTick;
+
+		}
+		//probe targets:
+		const float deltaTime = ClayTick / 0.5f;
+		const float epsilon = 0.001f; // A small value to handle floating-point precision issues
+		for (auto &p : probes) {
+			glm::vec2 delta = p.target - p.pos;
+			float len = glm::length(delta);
+			float new_len = std::pow(0.5f, deltaTime) * len - deltaTime;
+			if (new_len < epsilon) {
+				p.pos = p.target;
+			} else {
+				p.pos += delta * (new_len / len);
+			}
+			// p.pos = p.target;
+		}
+		// Probe targets:
+		// for (auto &p : probes) {
+		// 	glm::vec2 delta = p.target - p.pos;
+		// 	float len = glm::length(delta);
+
+		// 	if (len < epsilon) {
+		// 		p.pos = p.target; // Handle cases where the distance is very small
+		// 	} else {
+		// 		// Use a single multiplication instead of pow to improve performance
+		// 		float scalingFactor = std::exp(-deltaTime);
+		// 		p.pos += delta * (1.0f - scalingFactor); // Update position using exponential interpolation
+		// 	}
+		// }
+		//particles vs world:
+		for (auto &p : particles) {
+			if (p.pos.x < box_min.x) {
+				p.pos.x = box_min.x;
+				if (p.vel.x < 0.0f) {
+					p.vel.x = wall_bounce * std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.x > box_max.x) {
+				p.pos.x = box_max.x;
+				if (p.vel.x > 0.0f) {
+					p.vel.x = wall_bounce * -std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.y < box_min.y) {
+				p.pos.y = box_min.y;
+				if (p.vel.y < 0.0f) {
+					p.vel.y = wall_bounce * std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+			if (p.pos.y > box_max.y) {
+				p.pos.y = box_max.y;
+				if (p.vel.y > 0.0f) {
+					p.vel.y = wall_bounce * -std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+		}
+		touching = false;
+		for (auto &p2 : probes) {
+			p2.touching = false;
+		}
+		const float dist = 0.0f;
+		const float alpha_probe = 0.15f;
+		// probe_pinch = glm::clamp(probe_pinch, 0.0f, 1.0f);
+		// std::cout<<"probe_pinch: "<<probe_pinch<<" xH: "<<xH<<" probe_rot: "<<probe_rot<<std::endl;
+		const int cycleThreshold = 5;
+
 		if(move_together == true){
+		// if (true){
 			glm::vec2 avg_step = glm::vec2(0.0f,0.0f);
 			int touch_count = 0;
-			for (auto &p : particles) {
+			for (auto &	p : particles) {
 				for (auto &p2 : particles) {
 						if (&p == &p2) break;
 						glm::vec2 to = p2.pos - p.pos;
@@ -2026,97 +2094,37 @@ void PlayMode::tick_clay() {
 					}
 					if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
 						p2.touching = true;
+						touching = true;
 					}
 				}
 			}
+			// if (avg_step.x != 0.0f || avg_step.y != 0.0f){
+			// 	std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+			// }
+			
+			// std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+			const auto vel_damped = 0.015f * avg_step;
 			if(touch_count > 0){
-				avg_step /= touch_count;
+				// avg_step /= touch_count;
 				for (auto &p : particles) {
-					p.pos -= avg_step;
+					p.pos -= vel_damped;
 				}
-			}
+			}		
+			
+
+			// }
 			std::stringstream stream;
 			stream << std::fixed << std::setprecision(0) << dist*10000;
 			std::string s = stream.str();
 			//Count the continous number of no touchs
 			const int cycleThreshold = 5;
-			count_touching_probes = 0;
-			for (auto &p2 : probes) {
-				if(p2.touching){
-					count_touching_probes ++;
-				}
-			}
-			//Priority order is important
-			if (open_probes == true || hand_1_state == 1){
-				probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
-			} else if (do_pinch == true || hand_1_state == 2) {
-				probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
-			}else if (count_touching_probes == 0 && hand_1_state == 1){
-				probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);		
-			} else if (count_touching_probes == 1){
-				probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f); // close if you're just touching with one probe
-			}
-			// std::cout<<"count_touching: "<<count_touching_probes<<" state:"<<hand_1_state<<" probe pinch"<<probe_pinch<<std::endl;
-			
-			// std::cout<<"ClayTick "<<ClayTick<<" ClayTick / 0.5f: "<<ClayTick / 0.5f<<std::endl;
-			// std::cout<<"count_touching: "<<count_touching_probes<<"clay probe_pinch: "<<
-			// probe_pinch<<" open: "<<open_probes<<" do_pinch "<<do_pinch<<std::endl;
-			if (serial_port_name != "None"){
-				std::string read_byte_1;
-				if(touching != isActive) { 
-					std::string str;
-					std::cout<<"toggle"<<std::endl;
-					isActive = touching;
-					if (filter_signal==false){
-						if (touching) {
-							std::cout << "Writing Signal is true!" << std::endl;
-							// Reset the cycle count if the signal is true
-							ticks_acc_filter = 0; 
-							str.append("i1l");
-							serial_port.Write(str);
-						} else {
-							// Increment the cycle count if the signal is false
-							//ticks_acc++;
-							// Check the cycle count against the threshold value
-							std::cout << "Writing Signal is false." << std::endl;
-							str.append("i0l");
-							serial_port.Write(str);
-						}
-					}
-					else {
-						if (touching) {
-							std::cout << "Writing Signal is true!" << std::endl;
-							// Reset the cycle count if the signal is true
-							ticks_acc_filter = 0;
-							str.append("i1l");
-							serial_port.Write(str);
-						} else {
-							// Increment the cycle count if the signal is false
-							//ticks_acc++;
-							// Check the cycle count against the threshold value
-							if (ticks_acc_filter <= cycleThreshold) {
-								std::cout << "Writing Assuming signal is true." << std::endl;
-								// Reset the cycle count if the threshold is reached
-								ticks_acc_filter = 0;
-								str.append("i1l");
-								serial_port.Write(str);
+			// count_touching_probes = 0;
+			// for (auto &p2 : probes) {
+			// 	if(p2.touching){
+			// 		count_touching_probes ++;
+			// 	}
+			// }
 
-							}else{
-								std::cout << "Writing Signal is false." << std::endl;
-								str.append("i0l");
-								serial_port.Write(str);
-							}
-						}
-					}
-				}
-				// if(ticks_acc_filter>1000 && touching == false){
-				// 	ticks_acc_filter = 0;
-				// 	std::cout << "Timeout Writing Signal is false." << std::endl;
-				// 	serial_port.Write("i0l");
-				// 	//std::cout<<"reset"<<std::endl;
-				// }
-			}
-		
 			//estimate velocity from motion:
 			for (uint32_t i = 0; i < particles.size(); ++i) {
 				auto &p = particles[i];
@@ -2205,6 +2213,7 @@ void PlayMode::tick_clay() {
 						}
 						if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
 							p2.touching = true;
+							touching = true;
 						}
 					}
 				}
@@ -2213,7 +2222,6 @@ void PlayMode::tick_clay() {
 			stream << std::fixed << std::setprecision(0) << dist*10000;
 			std::string s = stream.str();
 			//Count the continous number of no touchs
-			const int cycleThreshold = 5;
 			count_touching_probes = 0;
 			for (auto &p2 : probes) {
 				if(p2.touching){
@@ -2221,26 +2229,303 @@ void PlayMode::tick_clay() {
 				}
 			}
 			//Priority order is important
-			if (open_probes == true || hand_1_state == 1){
-				probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
-			} else if (do_pinch == true || hand_1_state == 2) {
-				probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
-			}else if (count_touching_probes == 0 && hand_1_state == 1){
-				probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);		
-			} else if (count_touching_probes == 1){
-				probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f); // close if you're just touching with one probe
+			// if (open_probes == true || hand_1_state == 1){
+			// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
+			// } else if (do_pinch == true || hand_1_state == 2) {
+			// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
+			// }else if (count_touching_probes == 0 && hand_1_state == 1){
+			// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);		
+			// } else if (count_touching_probes == 1){
+			// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f); // close if you're just touching with one probe
+			// }
+	
+			//estimate velocity from motion:
+			for (uint32_t i = 0; i < particles.size(); ++i) {
+				auto &p = particles[i];
+				p.vel = (p.pos - old_pos[i]) / ClayTick;
 			}
-			// std::cout<<"count_touching: "<<count_touching_probes<<" state:"<<hand_1_state<<" probe pinch"<<probe_pinch<<std::endl;
-			
-			// std::cout<<"ClayTick "<<ClayTick<<" ClayTick / 0.5f: "<<ClayTick / 0.5f<<std::endl;
-			// std::cout<<"count_touching: "<<count_touching_probes<<"clay probe_pinch: "<<
-			// probe_pinch<<" open: "<<open_probes<<" do_pinch "<<do_pinch<<std::endl;
+		}
+		//viscosity (the slow way):
+		glm::vec2 avg_vel = glm::vec2(0.0f, 0.0f);
+		if (use_viscosity){
+			if (use_grid){
+				// Check collisions using the spatial grid
+				for (auto& particle : particles) {
+					// Get the bin indices of the particle's current position
+					int binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+					int binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+					// Get particles in the neighboring bins
+					std::vector<Particle*> neighboringParticles = spatial_grid.getParticlesInNeighboringBins(binX, binY);
+					// Check collisions with neighboring particles
+					for (auto& neighborParticle : neighboringParticles) {
+						if (&particle == neighborParticle)
+							continue;
+						glm::vec2 to = neighborParticle->pos - particle.pos;
+						float len2 = glm::length2(to);
+						const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+						const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (neighborParticle->vel + particle.vel);
+							particle.vel += (avg - particle.vel) * amt;
+							neighborParticle->vel += (avg - neighborParticle->vel) * amt;
+						}
+					}
+				}
+			}
+			else{
+				for (auto &p : particles) {
+					for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+						const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+							p.vel += (avg - p.vel) * amt;
+							p2.vel += (avg - p2.vel) * amt;
+						}
+					}
+					avg_vel += p.vel;
+				}
+			}
+		}
+		if (use_haptics){
 			if (serial_port_name != "None"){
 				std::string read_byte_1;
 				if(touching != isActive) { 
 					std::string str;
 					std::cout<<"toggle"<<std::endl;
 					isActive = touching;
+					{
+						// boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
+						if (filter_signal==false){
+							if (touching) {
+								std::cout << "Writing Signal is true!" << std::endl;
+								// Reset the cycle count if the signal is true
+								ticks_acc_filter = 0; 
+								str.append("i1l");
+								serial_port.Write(str);
+							} else {
+								// Increment the cycle count if the signal is false
+								//ticks_acc++;
+								// Check the cycle count against the threshold value
+								std::cout << "Writing Signal is false." << std::endl;
+								str.append("i0l");
+								serial_port.Write(str);
+							}
+						}
+						else {
+							if (touching) {
+								std::cout << "Writing Signal is true!" << std::endl;
+								// Reset the cycle count if the signal is true
+								ticks_acc_filter = 0;
+								str.append("i1l");
+								serial_port.Write(str);
+							} else {
+								// Increment the cycle count if the signal is false
+								//ticks_acc++;
+								// Check the cycle count against the threshold value
+								if (ticks_acc_filter <= cycleThreshold) {
+									std::cout << "Writing Assuming signal is true." << std::endl;
+									// Reset the cycle count if the threshold is reached
+									ticks_acc_filter = 0;
+									str.append("i1l");
+									serial_port.Write(str);
+
+								}else{
+									std::cout << "Writing Signal is false." << std::endl;
+									str.append("i0l");
+									serial_port.Write(str);
+								}
+							}
+						}
+
+					}
+				}
+				// if(ticks_acc_filter>1000 && touching == false){
+				// 	ticks_acc_filter = 0;
+				// 	std::cout << "Timeout Writing Signal is false." << std::endl;
+				// 	serial_port.Write("i0l");
+				// 	//std::cout<<"reset"<<std::endl;
+				// }
+			}
+		}
+	}
+	else if(mod_1){
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+		glm::vec2 max_vel  = glm::vec2(0.0f,0.0f);
+		//step as per velocity:
+		for (auto &p : particles) {
+			old_pos.emplace_back(p.pos);
+			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+			// p.vel = glm::min(p.vel, glm::vec2(2.0f,2.0f));
+			p.vel = glm::clamp(p.vel, glm::vec2(-2.0f,-2.0f), glm::vec2(2.0f,2.0f));
+			// Round velocity components to zero if significantly small
+            const float velocityThreshold = 0.001f;
+            if (std::abs(p.vel.x) < velocityThreshold) {
+                p.vel.x = 0.0f;
+            }
+            if (std::abs(p.vel.y) < velocityThreshold) {
+                p.vel.y = 0.0f;
+            }			
+			p.vel *= std::pow(kFriction, ClayTick / kDamping); //friction / damping better performandce
+			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			p.pos += p.vel * ClayTick;
+			max_vel.x = glm::max(max_vel.x, abs(p.vel.x));
+			max_vel.y = glm::max(max_vel.y, abs(p.vel.y));
+
+		}
+		// if(max_vel.x > 1.0 || max_vel.y > 1.0){
+			// std::cout<<"max vel "<<max_vel.x<<" "<<max_vel.y<<std::endl;
+		// }
+		//probe targets:
+		for (auto &p : probes) {
+			float len = glm::length(p.target - p.pos);
+			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+			if (new_len <= 0.0f) {
+				p.pos = p.target;
+			} else {
+				p.pos += (p.target - p.pos) * (new_len / len);
+			}
+			p.pos = p.target;
+		}
+		//particles vs world:
+		for (auto &p : particles) {
+			if (p.pos.x < box_min.x) {
+				p.pos.x = box_min.x;
+				if (p.vel.x < 0.0f) {
+					p.vel.x = wall_bounce * std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.x > box_max.x) {
+				p.pos.x = box_max.x;
+				if (p.vel.x > 0.0f) {
+					p.vel.x = wall_bounce * -std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.y < box_min.y) {
+				p.pos.y = box_min.y;
+				if (p.vel.y < 0.0f) {
+					p.vel.y = wall_bounce * std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+			if (p.pos.y > box_max.y) {
+				p.pos.y = box_max.y;
+				if (p.vel.y > 0.0f) {
+					p.vel.y = wall_bounce * -std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+		}
+		//particles vs particles (the slow way):
+		touching = false;
+		for (auto &p2 : probes) {
+			p2.touching = false;
+		}
+		float dist = 0.0f;
+		float alpha_probe = 0.15f;
+		// probe_pinch = glm::clamp(probe_pinch, 0.0f, 1.0f);
+		// std::cout<<"probe_pinch: "<<probe_pinch<<" xH: "<<xH<<" probe_rot: "<<probe_rot<<std::endl;
+		const int cycleThreshold = 5;
+
+		glm::vec2 avg_step = glm::vec2(0.0f,0.0f);
+		int touch_count = 0;
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+					if (&p == &p2) break;
+					glm::vec2 to = p2.pos - p.pos;
+					float len2 = glm::length2(to);
+					if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+						glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+						p.pos -= alpha * 0.5f * step;
+						p2.pos += alpha * 0.5f * step;
+					}
+			}
+			for (auto &p2 : probes) {
+				if (p2.active == false) continue;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float near = particle_radius + probe_radius;
+				const float near2 = near * near;
+				if (len2 > 0.0f && len2 < near2) {
+					glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+					p.pos -= 0.5f * step;
+					p2.pos += 0.5f * step;
+					avg_step += 0.5f * step;
+					touch_count++;
+				}
+				if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+					p2.touching = true;
+					touching = true;
+				}
+			}
+		}
+		// std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+		const auto vel_damped = 0.015f * avg_step;
+		// if(touch_count > 0){
+		// 	// avg_step /= touch_count;
+		// 	for (auto &p : particles) {
+		// 		p.pos -= vel_damped;
+		// 	}
+		// }
+		// }
+		std::stringstream stream;
+		stream << std::fixed << std::setprecision(0) << dist*10000;
+		std::string s = stream.str();
+		//Count the continous number of no touchs
+		// const int cycleThreshold = 5;
+		// count_touching_probes = 0;
+		// for (auto &p2 : probes) {
+		// 	if(p2.touching){
+		// 		count_touching_probes ++;
+		// 	}
+		// }
+		//estimate velocity from motion:
+		for (uint32_t i = 0; i < particles.size(); ++i) {
+			auto &p = particles[i];
+			p.pos -= vel_damped;
+			p.vel = (p.pos - old_pos[i]) / ClayTick;
+		}
+
+		auto t1 = std::chrono::high_resolution_clock::now();
+		//viscosity (the slow way):
+		for (auto &p : particles) {
+			for (auto &p2 : particles) {
+				if (&p == &p2) break;
+				glm::vec2 to = p2.pos - p.pos;
+				float len2 = glm::length2(to);
+				const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+				const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+				if (len2 > 0.0f && len2 < outer2) {
+					float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+					glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+					p.vel += (avg - p.vel) * amt;
+					p2.vel += (avg - p2.vel) * amt;
+				}
+			}
+		}
+		auto t2 = std::chrono::high_resolution_clock::now();
+		/* Getting number of milliseconds as an integer. */
+		auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+		/* Getting number of milliseconds as a double. */
+		std::chrono::duration<double, std::milli> ms_double = t2 - t1;
+		std::cout << ms_double.count() << "ms\n";
+		
+		if (serial_port_name != "None"){
+			std::string read_byte_1;
+			if(touching != isActive) { 
+				std::string str;
+				std::cout<<"toggle"<<std::endl;
+				isActive = touching;
+				{
+					// boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
 					if (filter_signal==false){
 						if (touching) {
 							std::cout << "Writing Signal is true!" << std::endl;
@@ -2282,15 +2567,282 @@ void PlayMode::tick_clay() {
 							}
 						}
 					}
+
 				}
-				// if(ticks_acc_filter>1000 && touching == false){
-				// 	ticks_acc_filter = 0;
-				// 	std::cout << "Timeout Writing Signal is false." << std::endl;
-				// 	serial_port.Write("i0l");
-				// 	//std::cout<<"reset"<<std::endl;
+			}
+		}
+	}
+	else if(mod_2){
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+		glm::vec2 max_vel  = glm::vec2(0.0f,0.0f);
+		//step as per velocity:
+		for (auto &p : particles) {
+			old_pos.emplace_back(p.pos);
+			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+			// p.vel = glm::min(p.vel, glm::vec2(2.0f,2.0f));
+			p.vel = glm::clamp(p.vel, glm::vec2(-2.0f,-2.0f), glm::vec2(2.0f,2.0f));
+			// Round velocity components to zero if significantly small
+            const float velocityThreshold = 0.001f;
+            if (std::abs(p.vel.x) < velocityThreshold) {
+                p.vel.x = 0.0f;
+            }
+            if (std::abs(p.vel.y) < velocityThreshold) {
+                p.vel.y = 0.0f;
+            }			
+			p.vel *= std::pow(kFriction, ClayTick / kDamping); //friction / damping better performandce
+			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			p.pos += p.vel * ClayTick;
+			max_vel.x = glm::max(max_vel.x, abs(p.vel.x));
+			max_vel.y = glm::max(max_vel.y, abs(p.vel.y));
+
+		}
+		// if(max_vel.x > 1.0 || max_vel.y > 1.0){
+			// std::cout<<"max vel "<<max_vel.x<<" "<<max_vel.y<<std::endl;
+		// }
+		//probe targets:
+		for (auto &p : probes) {
+			float len = glm::length(p.target - p.pos);
+			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+			if (new_len <= 0.0f) {
+				p.pos = p.target;
+			} else {
+				p.pos += (p.target - p.pos) * (new_len / len);
+			}
+			p.pos = p.target;
+		}
+		//particles vs world:
+		for (auto &p : particles) {
+			if (p.pos.x < box_min.x) {
+				p.pos.x = box_min.x;
+				if (p.vel.x < 0.0f) {
+					p.vel.x = wall_bounce * std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.x > box_max.x) {
+				p.pos.x = box_max.x;
+				if (p.vel.x > 0.0f) {
+					p.vel.x = wall_bounce * -std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.y < box_min.y) {
+				p.pos.y = box_min.y;
+				if (p.vel.y < 0.0f) {
+					p.vel.y = wall_bounce * std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+			if (p.pos.y > box_max.y) {
+				p.pos.y = box_max.y;
+				if (p.vel.y > 0.0f) {
+					p.vel.y = wall_bounce * -std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+		}
+		//particles vs particles (the slow way):
+		touching = false;
+		for (auto &p2 : probes) {
+			p2.touching = false;
+		}
+		float dist = 0.0f;
+		float alpha_probe = 0.15f;
+		// probe_pinch = glm::clamp(probe_pinch, 0.0f, 1.0f);
+		// std::cout<<"probe_pinch: "<<probe_pinch<<" xH: "<<xH<<" probe_rot: "<<probe_rot<<std::endl;
+		const int cycleThreshold = 5;
+
+		if(move_together == true){
+		// if (true){
+			glm::vec2 avg_step = glm::vec2(0.0f,0.0f);
+			int touch_count = 0;
+			for (auto &p : particles) {
+				for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+							glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+							p.pos -= alpha * 0.5f * step;
+							p2.pos += alpha * 0.5f * step;
+						}
+				}
+				for (auto &p2 : probes) {
+					if (p2.active == false) continue;
+					glm::vec2 to = p2.pos - p.pos;
+					float len2 = glm::length2(to);
+					const float near = particle_radius + probe_radius;
+					const float near2 = near * near;
+					if (len2 > 0.0f && len2 < near2) {
+						glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+						p.pos -= 0.5f * step;
+						p2.pos += 0.5f * step;
+						avg_step += 0.5f * step;
+						touch_count++;
+					}
+					if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+						p2.touching = true;
+						touching = true;
+					}
+				}
+			}
+			// if (avg_step.x != 0.0f || avg_step.y != 0.0f){
+			// 	std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+			// }
+			
+			// std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+			if (use_multiplier){
+				const auto vel_damped = 0.015f * avg_step;
+				if(touch_count > 0){
+					// avg_step /= touch_count;
+					for (auto &p : particles) {
+						p.pos -= vel_damped;
+					}
+				}
+			} else{
+				const auto vel_damped = 0.5f * avg_step;
+				if(touch_count > 0){
+					// avg_step /= touch_count;
+					for (auto &p : particles) {
+						p.pos -= vel_damped;
+					}
+				}
+			}
+			
+
+			// }
+			std::stringstream stream;
+			stream << std::fixed << std::setprecision(0) << dist*10000;
+			std::string s = stream.str();
+			//Count the continous number of no touchs
+			const int cycleThreshold = 5;
+			count_touching_probes = 0;
+			for (auto &p2 : probes) {
+				if(p2.touching){
+					count_touching_probes ++;
+				}
+			}
+
+			//estimate velocity from motion:
+			for (uint32_t i = 0; i < particles.size(); ++i) {
+				auto &p = particles[i];
+				p.vel = (p.pos - old_pos[i]) / ClayTick;
+			}
+		}
+		else{
+			if (use_grid){
+				// Check collisions using the spatial grid
+				for (auto& particle : particles) {
+					// Get the bin indices of the particle's current position
+					int binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+					int binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+
+					// Get particles in the neighboring bins
+					std::vector<Particle*> neighboringParticles = spatial_grid.getParticlesInNeighboringBins(binX, binY);
+
+					// Check collisions with neighboring particles
+					for (auto& neighborParticle : neighboringParticles) {
+						if (&particle == neighborParticle)
+							continue;
+
+						glm::vec2 to = neighborParticle->pos - particle.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+							glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+							int particle_binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+							int particle_binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+							int neighbor_binX = static_cast<int>(neighborParticle->pos.x / unit_line_spacing);
+							int neighbor_binY = static_cast<int>(neighborParticle->pos.y / unit_line_spacing);
+							particle.pos -= alpha * 0.5f * step;
+							neighborParticle->pos += alpha * 0.5f * step;
+							// Update the spatial grid with the new particle positions
+							spatial_grid.moveParticle(&particle, particle_binX, particle_binY); // Calculate the bin indices for the particle's position
+							spatial_grid.moveParticle(neighborParticle, neighbor_binX, neighbor_binY); // Calculate the bin indices for the particle's position
+							// Calculate the bin indices for the particle's position
+						}
+					}
+					for (auto &p2 : probes) {
+						if (p2.active == false) continue;
+						glm::vec2 to = p2.pos - particle.pos;
+						float len2 = glm::length2(to);
+						const float near = particle_radius + probe_radius;
+						const float near2 = near * near;
+						if (len2 > 0.0f && len2 < near2) {
+							glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+							int particle_binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+							int particle_binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+							particle.pos -= 0.5f * step;
+							p2.pos += 0.5f * step;
+							spatial_grid.moveParticle(&particle, particle_binX, particle_binY); // Calculate the bin indices for the particle's position
+						}
+						if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+							p2.touching = true;
+						}
+					}
+				}
+				// // Update the spatial grid with the new particle positions
+				// spatial_grid.clear(); // Clear the grid
+				// for (auto& particle : particles) {
+				// 	spatial_grid.addParticle(&particle); // Re-add particles to the grid based on their updated positions
 				// }
 			}
-		
+			else{
+				for (auto &p : particles) {
+					for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+							glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+							p.pos -= alpha * 0.5f * step;
+							p2.pos += alpha * 0.5f * step;
+						}
+					}
+					for (auto &p2 : probes) {
+						if (p2.active == false) continue;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						const float near = particle_radius + probe_radius;
+						const float near2 = near * near;
+						if (len2 > 0.0f && len2 < near2) {
+							glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+							p.pos -= 0.5f * step;
+							p2.pos += 0.5f * step;
+						}
+						if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+							p2.touching = true;
+							touching = true;
+						}
+					}
+				}
+			}
+			std::stringstream stream;
+			stream << std::fixed << std::setprecision(0) << dist*10000;
+			std::string s = stream.str();
+			//Count the continous number of no touchs
+			count_touching_probes = 0;
+			for (auto &p2 : probes) {
+				if(p2.touching){
+					count_touching_probes ++;
+				}
+			}
+			//Priority order is important
+			// if (open_probes == true || hand_1_state == 1){
+			// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
+			// } else if (do_pinch == true || hand_1_state == 2) {
+			// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
+			// }else if (count_touching_probes == 0 && hand_1_state == 1){
+			// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);		
+			// } else if (count_touching_probes == 1){
+			// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f); // close if you're just touching with one probe
+			// }
+			// std::cout<<"count_touching: "<<count_touching_probes<<" state:"<<hand_1_state<<" probe pinch"<<probe_pinch<<std::endl;
+			
+			// std::cout<<"ClayTick "<<ClayTick<<" ClayTick / 0.5f: "<<ClayTick / 0.5f<<std::endl;
+			// std::cout<<"count_touching: "<<count_touching_probes<<"clay probe_pinch: "<<
+			// probe_pinch<<" open: "<<open_probes<<" do_pinch "<<do_pinch<<std::endl;
+	
 			//estimate velocity from motion:
 			for (uint32_t i = 0; i < particles.size(); ++i) {
 				auto &p = particles[i];
@@ -2314,52 +2866,546 @@ void PlayMode::tick_clay() {
 					}
 				}
 			}
-			//viscosity (the slow way):
-			glm::vec2 avg_vel = glm::vec2(0.0f, 0.0f);
-			if (use_viscosity){
-				if (use_grid){
-					// Check collisions using the spatial grid
-					for (auto& particle : particles) {
-						// Get the bin indices of the particle's current position
-						int binX = static_cast<int>(particle.pos.x / unit_line_spacing);
-						int binY = static_cast<int>(particle.pos.y / unit_line_spacing);
-						// Get particles in the neighboring bins
-						std::vector<Particle*> neighboringParticles = spatial_grid.getParticlesInNeighboringBins(binX, binY);
-						// Check collisions with neighboring particles
-						for (auto& neighborParticle : neighboringParticles) {
-							if (&particle == neighborParticle)
-								continue;
-							glm::vec2 to = neighborParticle->pos - particle.pos;
-							float len2 = glm::length2(to);
-							const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
-							const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
-							if (len2 > 0.0f && len2 < outer2) {
-								float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
-								glm::vec2 avg = 0.5f * (neighborParticle->vel + particle.vel);
-								particle.vel += (avg - particle.vel) * amt;
-								neighborParticle->vel += (avg - neighborParticle->vel) * amt;
-							}
+		}
+		//viscosity (the slow way):
+		glm::vec2 avg_vel = glm::vec2(0.0f, 0.0f);
+		if (use_viscosity){
+			if (use_grid){
+				// Check collisions using the spatial grid
+				auto t1 = std::chrono::high_resolution_clock::now();
+				double ms_getting_particles = 0.0;
+				for (auto& particle : particles) {
+					// Get the bin indices of the particle's current position
+					int binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+					int binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+					// Get particles in the neighboring bins
+					auto t3 = std::chrono::high_resolution_clock::now();
+					std::vector<Particle*> neighboringParticles = spatial_grid.getParticlesInNeighboringBins(binX, binY);
+					auto t4 = std::chrono::high_resolution_clock::now();
+					auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3);
+					/* Getting number of milliseconds as a double. */
+					std::chrono::duration<double, std::milli> ms_double = t4 - t3;
+					ms_getting_particles += ms_double.count();
+					// Check collisions with neighboring particles
+					for (auto& neighborParticle : neighboringParticles) {
+						if (&particle == neighborParticle)
+							continue;
+						glm::vec2 to = neighborParticle->pos - particle.pos;
+						float len2 = glm::length2(to);
+						// const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+						// const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+						// if (len2 > 0.0f && len2 < outer2) {
+						// 	float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+						// 	glm::vec2 avg = 0.5f * (neighborParticle->vel + particle.vel);
+						// 	particle.vel += (avg - particle.vel) * amt;
+						// 	neighborParticle->vel += (avg - neighborParticle->vel) * amt;
+						// }
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (neighborParticle->vel + particle.vel);
+							particle.vel += (avg - particle.vel) * amt;
+							neighborParticle->vel += (avg - neighborParticle->vel) * amt;
 						}
 					}
 				}
-				else{
+				auto t2 = std::chrono::high_resolution_clock::now();
+				/* Getting number of milliseconds as an integer. */
+				auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+				/* Getting number of milliseconds as a double. */
+				std::chrono::duration<double, std::milli> ms_double = t2 - t1;
+				
+				std::cout <<" using grid: "<<ms_double.count() << " total ms_getting "<<ms_getting_particles<< " pp time: "<<ms_getting_particles/particles.size()<<"ms\n";
+
+			}
+			else{
+				auto t1 = std::chrono::high_resolution_clock::now();
+
+				for (auto &p : particles) {
+					for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+							p.vel += (avg - p.vel) * amt;
+							p2.vel += (avg - p2.vel) * amt;
+						}
+					}
+					// avg_vel += p.vel;
+				}
+				auto t2 = std::chrono::high_resolution_clock::now();
+				/* Getting number of milliseconds as an integer. */
+				auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+				/* Getting number of milliseconds as a double. */
+				std::chrono::duration<double, std::milli> ms_double = t2 - t1;
+				std::cout <<" not using grid: "<<ms_double.count() << "ms\n";
+
+			}
+		}
+		if (use_haptics){
+			if (serial_port_name != "None"){
+				std::string read_byte_1;
+				if(touching != isActive) { 
+					std::string str;
+					std::cout<<"toggle"<<std::endl;
+					isActive = touching;
+					{
+						// boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
+						if (filter_signal==false){
+							if (touching) {
+								std::cout << "Writing Signal is true!" << std::endl;
+								// Reset the cycle count if the signal is true
+								ticks_acc_filter = 0; 
+								str.append("i1l");
+								serial_port.Write(str);
+							} else {
+								// Increment the cycle count if the signal is false
+								//ticks_acc++;
+								// Check the cycle count against the threshold value
+								std::cout << "Writing Signal is false." << std::endl;
+								str.append("i0l");
+								serial_port.Write(str);
+							}
+						}
+						else {
+							if (touching) {
+								std::cout << "Writing Signal is true!" << std::endl;
+								// Reset the cycle count if the signal is true
+								ticks_acc_filter = 0;
+								str.append("i1l");
+								serial_port.Write(str);
+							} else {
+								// Increment the cycle count if the signal is false
+								//ticks_acc++;
+								// Check the cycle count against the threshold value
+								if (ticks_acc_filter <= cycleThreshold) {
+									std::cout << "Writing Assuming signal is true." << std::endl;
+									// Reset the cycle count if the threshold is reached
+									ticks_acc_filter = 0;
+									str.append("i1l");
+									serial_port.Write(str);
+
+								}else{
+									std::cout << "Writing Signal is false." << std::endl;
+									str.append("i0l");
+									serial_port.Write(str);
+								}
+							}
+						}
+
+					}
+				}
+				// if(ticks_acc_filter>1000 && touching == false){
+				// 	ticks_acc_filter = 0;
+				// 	std::cout << "Timeout Writing Signal is false." << std::endl;
+				// 	serial_port.Write("i0l");
+				// 	//std::cout<<"reset"<<std::endl;
+				// }
+			}
+		}
+	}
+	else if(mod_3){
+		std::vector< glm::vec2 > old_pos;
+		old_pos.reserve(particles.size());
+		glm::vec2 max_vel  = glm::vec2(0.0f,0.0f);
+		//step as per velocity:
+		for (auto &p : particles) {
+			old_pos.emplace_back(p.pos);
+			//p.vel *= std::pow(0.5f, ClayTick / 0.2f); //friction / damping orig
+			// p.vel = glm::min(p.vel, glm::vec2(2.0f,2.0f));
+			p.vel = glm::clamp(p.vel, glm::vec2(-2.0f,-2.0f), glm::vec2(2.0f,2.0f));
+			// Round velocity components to zero if significantly small
+            const float velocityThreshold = 0.001f;
+            if (std::abs(p.vel.x) < velocityThreshold) {
+                p.vel.x = 0.0f;
+            }
+            if (std::abs(p.vel.y) < velocityThreshold) {
+                p.vel.y = 0.0f;
+            }			
+			p.vel *= std::pow(kFriction, ClayTick / kDamping); //friction / damping better performandce
+			//p.vel += ClayTick * glm::vec2(0.0f, -1.0f); //DEBUG: gravity
+			p.pos += p.vel * ClayTick;
+			max_vel.x = glm::max(max_vel.x, abs(p.vel.x));
+			max_vel.y = glm::max(max_vel.y, abs(p.vel.y));
+
+		}
+		// if(max_vel.x > 1.0 || max_vel.y > 1.0){
+			// std::cout<<"max vel "<<max_vel.x<<" "<<max_vel.y<<std::endl;
+		// }
+		//probe targets:
+		for (auto &p : probes) {
+			float len = glm::length(p.target - p.pos);
+			float new_len = std::pow(0.5f, ClayTick / 0.5f) * len - ClayTick / 0.5f;
+			if (new_len <= 0.0f) {
+				p.pos = p.target;
+			} else {
+				p.pos += (p.target - p.pos) * (new_len / len);
+			}
+			p.pos = p.target;
+		}
+		//particles vs world:
+		for (auto &p : particles) {
+			if (p.pos.x < box_min.x) {
+				p.pos.x = box_min.x;
+				if (p.vel.x < 0.0f) {
+					p.vel.x = wall_bounce * std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.x > box_max.x) {
+				p.pos.x = box_max.x;
+				if (p.vel.x > 0.0f) {
+					p.vel.x = wall_bounce * -std::abs(p.vel.x);
+					old_pos[&p - &particles[0]].x = p.pos.x - ClayTick * p.vel.x;
+				}
+			}
+			if (p.pos.y < box_min.y) {
+				p.pos.y = box_min.y;
+				if (p.vel.y < 0.0f) {
+					p.vel.y = wall_bounce * std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+			if (p.pos.y > box_max.y) {
+				p.pos.y = box_max.y;
+				if (p.vel.y > 0.0f) {
+					p.vel.y = wall_bounce * -std::abs(p.vel.y);
+					old_pos[&p - &particles[0]].y = p.pos.y - ClayTick * p.vel.y;
+				}
+			}
+		}
+		//particles vs particles (the slow way):
+		touching = false;
+		for (auto &p2 : probes) {
+			p2.touching = false;
+		}
+		float dist = 0.0f;
+		float alpha_probe = 0.15f;
+		// probe_pinch = glm::clamp(probe_pinch, 0.0f, 1.0f);
+		// std::cout<<"probe_pinch: "<<probe_pinch<<" xH: "<<xH<<" probe_rot: "<<probe_rot<<std::endl;
+		const int cycleThreshold = 5;
+
+		if(move_together == true){
+		// if (true){
+			glm::vec2 avg_step = glm::vec2(0.0f,0.0f);
+			int touch_count = 0;
+			for (auto &p : particles) {
+				for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+							glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+							p.pos -= alpha * 0.5f * step;
+							p2.pos += alpha * 0.5f * step;
+						}
+				}
+				for (auto &p2 : probes) {
+					if (p2.active == false) continue;
+					glm::vec2 to = p2.pos - p.pos;
+					float len2 = glm::length2(to);
+					const float near = particle_radius + probe_radius;
+					const float near2 = near * near;
+					if (len2 > 0.0f && len2 < near2) {
+						glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+						p.pos -= 0.5f * step;
+						p2.pos += 0.5f * step;
+						avg_step += 0.5f * step;
+						touch_count++;
+					}
+					if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+						p2.touching = true;
+						touching = true;
+					}
+				}
+			}
+			// if (avg_step.x != 0.0f || avg_step.y != 0.0f){
+			// 	std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+			// }
+			
+			// std::cout<<"avg_step: "<<avg_step.x<<" "<<avg_step.y<<std::endl;
+			if (use_multiplier){
+				const auto vel_damped = 0.015f * avg_step;
+				if(touch_count > 0){
+					// avg_step /= touch_count;
 					for (auto &p : particles) {
-						for (auto &p2 : particles) {
-							if (&p == &p2) break;
-							glm::vec2 to = p2.pos - p.pos;
-							float len2 = glm::length2(to);
-							const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
-							const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
-							if (len2 > 0.0f && len2 < outer2) {
-								float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
-								glm::vec2 avg = 0.5f * (p2.vel + p.vel);
-								p.vel += (avg - p.vel) * amt;
-								p2.vel += (avg - p2.vel) * amt;
-							}
-						}
-						avg_vel += p.vel;
+						p.pos -= vel_damped;
 					}
 				}
+			} else{
+				const auto vel_damped = 0.5f * avg_step;
+				if(touch_count > 0){
+					// avg_step /= touch_count;
+					for (auto &p : particles) {
+						p.pos -= vel_damped;
+					}
+				}
+			}
+			
+
+			// }
+			std::stringstream stream;
+			stream << std::fixed << std::setprecision(0) << dist*10000;
+			std::string s = stream.str();
+			//Count the continous number of no touchs
+			const int cycleThreshold = 5;
+			count_touching_probes = 0;
+			for (auto &p2 : probes) {
+				if(p2.touching){
+					count_touching_probes ++;
+				}
+			}
+
+			//estimate velocity from motion:
+			for (uint32_t i = 0; i < particles.size(); ++i) {
+				auto &p = particles[i];
+				p.vel = (p.pos - old_pos[i]) / ClayTick;
+			}
+		}
+		else{
+			if (use_grid){
+				// Check collisions using the spatial grid
+				for (auto& particle : particles) {
+					// Get the bin indices of the particle's current position
+					int binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+					int binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+
+					// Get particles in the neighboring bins
+					std::vector<Particle*> neighboringParticles = spatial_grid.getParticlesInNeighboringBins(binX, binY);
+
+					// Check collisions with neighboring particles
+					for (auto& neighborParticle : neighboringParticles) {
+						if (&particle == neighborParticle)
+							continue;
+
+						glm::vec2 to = neighborParticle->pos - particle.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+							glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+							int particle_binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+							int particle_binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+							int neighbor_binX = static_cast<int>(neighborParticle->pos.x / unit_line_spacing);
+							int neighbor_binY = static_cast<int>(neighborParticle->pos.y / unit_line_spacing);
+							particle.pos -= alpha * 0.5f * step;
+							neighborParticle->pos += alpha * 0.5f * step;
+							// Update the spatial grid with the new particle positions
+							spatial_grid.moveParticle(&particle, particle_binX, particle_binY); // Calculate the bin indices for the particle's position
+							spatial_grid.moveParticle(neighborParticle, neighbor_binX, neighbor_binY); // Calculate the bin indices for the particle's position
+							// Calculate the bin indices for the particle's position
+						}
+					}
+					for (auto &p2 : probes) {
+						if (p2.active == false) continue;
+						glm::vec2 to = p2.pos - particle.pos;
+						float len2 = glm::length2(to);
+						const float near = particle_radius + probe_radius;
+						const float near2 = near * near;
+						if (len2 > 0.0f && len2 < near2) {
+							glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+							int particle_binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+							int particle_binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+							particle.pos -= 0.5f * step;
+							p2.pos += 0.5f * step;
+							spatial_grid.moveParticle(&particle, particle_binX, particle_binY); // Calculate the bin indices for the particle's position
+						}
+						if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+							p2.touching = true;
+						}
+					}
+				}
+				// // Update the spatial grid with the new particle positions
+				// spatial_grid.clear(); // Clear the grid
+				// for (auto& particle : particles) {
+				// 	spatial_grid.addParticle(&particle); // Re-add particles to the grid based on their updated positions
+				// }
+			}
+			else{
+				for (auto &p : particles) {
+					for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						if (len2 > 0.0f && len2 < (2.0f * particle_radius) * (2.0f * particle_radius)) {
+							glm::vec2 step = to * (2.0f * particle_radius / std::sqrt(len2) - 1.0f);
+							p.pos -= alpha * 0.5f * step;
+							p2.pos += alpha * 0.5f * step;
+						}
+					}
+					for (auto &p2 : probes) {
+						if (p2.active == false) continue;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						const float near = particle_radius + probe_radius;
+						const float near2 = near * near;
+						if (len2 > 0.0f && len2 < near2) {
+							glm::vec2 step = to * (near / std::sqrt(len2) - 1.0f);
+							p.pos -= 0.5f * step;
+							p2.pos += 0.5f * step;
+						}
+						if (len2 > 0.0f && (abs(len2-near2)<0.0005)) {
+							p2.touching = true;
+							touching = true;
+						}
+					}
+				}
+			}
+			std::stringstream stream;
+			stream << std::fixed << std::setprecision(0) << dist*10000;
+			std::string s = stream.str();
+			//Count the continous number of no touchs
+			count_touching_probes = 0;
+			for (auto &p2 : probes) {
+				if(p2.touching){
+					count_touching_probes ++;
+				}
+			}
+			//Priority order is important
+			// if (open_probes == true || hand_1_state == 1){
+			// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);
+			// } else if (do_pinch == true || hand_1_state == 2) {
+			// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f);
+			// }else if (count_touching_probes == 0 && hand_1_state == 1){
+			// 	probe_pinch = std::max(0.0f, probe_pinch - ClayTick / 0.5f);		
+			// } else if (count_touching_probes == 1){
+			// 	probe_pinch = std::min(1.0f, probe_pinch + ClayTick / 0.5f); // close if you're just touching with one probe
+			// }
+			// std::cout<<"count_touching: "<<count_touching_probes<<" state:"<<hand_1_state<<" probe pinch"<<probe_pinch<<std::endl;
+			
+			// std::cout<<"ClayTick "<<ClayTick<<" ClayTick / 0.5f: "<<ClayTick / 0.5f<<std::endl;
+			// std::cout<<"count_touching: "<<count_touching_probes<<"clay probe_pinch: "<<
+			// probe_pinch<<" open: "<<open_probes<<" do_pinch "<<do_pinch<<std::endl;
+	
+			//estimate velocity from motion:
+			for (uint32_t i = 0; i < particles.size(); ++i) {
+				auto &p = particles[i];
+				p.vel = (p.pos - old_pos[i]) / ClayTick;
+			}
+			//test near
+			if (use_close){
+				for (auto &p : particles) {
+					for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						const float outer2 = (2.0f * close_radius) * (2.0f * close_radius);
+						const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+							p.vel += (avg - p.vel) * amt;
+							p2.vel += (avg - p2.vel) * amt;
+						}
+					}
+				}
+			}
+		}
+		//viscosity (the slow way):
+		glm::vec2 avg_vel = glm::vec2(0.0f, 0.0f);
+		if (use_viscosity){
+			if (use_grid){
+				// Check collisions using the spatial grid
+				for (auto& particle : particles) {
+					// Get the bin indices of the particle's current position
+					int binX = static_cast<int>(particle.pos.x / unit_line_spacing);
+					int binY = static_cast<int>(particle.pos.y / unit_line_spacing);
+					// Get particles in the neighboring bins
+					std::vector<Particle*> neighboringParticles = spatial_grid.getParticlesInNeighboringBins(binX, binY);
+					// Check collisions with neighboring particles
+					for (auto& neighborParticle : neighboringParticles) {
+						if (&particle == neighborParticle)
+							continue;
+						glm::vec2 to = neighborParticle->pos - particle.pos;
+						float len2 = glm::length2(to);
+						const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+						const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (neighborParticle->vel + particle.vel);
+							particle.vel += (avg - particle.vel) * amt;
+							neighborParticle->vel += (avg - neighborParticle->vel) * amt;
+						}
+					}
+				}
+			}
+			else{
+				for (auto &p : particles) {
+					for (auto &p2 : particles) {
+						if (&p == &p2) break;
+						glm::vec2 to = p2.pos - p.pos;
+						float len2 = glm::length2(to);
+						const float outer2 = (2.0f * viscosity_radius) * (2.0f * viscosity_radius);
+						const float inner2 = (2.0f * particle_radius) * (2.0f * particle_radius);
+						if (len2 > 0.0f && len2 < outer2) {
+							float amt = 1.0f - std::max(0.0f, len2 - inner2) / (outer2 - inner2);
+							glm::vec2 avg = 0.5f * (p2.vel + p.vel);
+							p.vel += (avg - p.vel) * amt;
+							p2.vel += (avg - p2.vel) * amt;
+						}
+					}
+					avg_vel += p.vel;
+				}
+			}
+		}
+		if (use_haptics){
+			if (serial_port_name != "None"){
+				std::string read_byte_1;
+				if(touching != isActive) { 
+					std::string str;
+					std::cout<<"toggle"<<std::endl;
+					isActive = touching;
+					{
+						// boost::lock_guard<boost::mutex> lock(serialMutex); // Lock the mutex for serial port access
+						if (filter_signal==false){
+							if (touching) {
+								std::cout << "Writing Signal is true!" << std::endl;
+								// Reset the cycle count if the signal is true
+								ticks_acc_filter = 0; 
+								str.append("i1l");
+								serial_port.Write(str);
+							} else {
+								// Increment the cycle count if the signal is false
+								//ticks_acc++;
+								// Check the cycle count against the threshold value
+								std::cout << "Writing Signal is false." << std::endl;
+								str.append("i0l");
+								serial_port.Write(str);
+							}
+						}
+						else {
+							if (touching) {
+								std::cout << "Writing Signal is true!" << std::endl;
+								// Reset the cycle count if the signal is true
+								ticks_acc_filter = 0;
+								str.append("i1l");
+								serial_port.Write(str);
+							} else {
+								// Increment the cycle count if the signal is false
+								//ticks_acc++;
+								// Check the cycle count against the threshold value
+								if (ticks_acc_filter <= cycleThreshold) {
+									std::cout << "Writing Assuming signal is true." << std::endl;
+									// Reset the cycle count if the threshold is reached
+									ticks_acc_filter = 0;
+									str.append("i1l");
+									serial_port.Write(str);
+
+								}else{
+									std::cout << "Writing Signal is false." << std::endl;
+									str.append("i0l");
+									serial_port.Write(str);
+								}
+							}
+						}
+
+					}
+				}
+				// if(ticks_acc_filter>1000 && touching == false){
+				// 	ticks_acc_filter = 0;
+				// 	std::cout << "Timeout Writing Signal is false." << std::endl;
+				// 	serial_port.Write("i0l");
+				// 	//std::cout<<"reset"<<std::endl;
+				// }
 			}
 		}
 	}

@@ -170,7 +170,12 @@ float calculateDistance(const std::pair<float, float>& point1, const std::pair<f
     float dy = point2.second - point1.second;
     return std::sqrt(std::pow(dx, 2) + std::pow(dy, 2));
 }
-
+// Function to calculate the rotation angle between two points
+float calculateRotationAngle(const std::pair<float, float>& point1, const std::pair<float, float>& point2) {
+    float dx = point2.first - point1.first;
+    float dy = point2.second - point1.second;
+    return std::atan2(dy, dx);
+}
 double movingAverage(std::vector<double>& data, double value,int windowSize = 8) {
     data.push_back(value);
     if (data.size() < windowSize) {
@@ -401,8 +406,10 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     LOG(INFO) << "Initialize the camera or load the video.";
     std::string camera_type = std::string(argv[2]);
     std::cout<<camera_type<<std::endl;
-    
     std::string tracking_type = std::string(argv[3]);
+    std::string fingers_info_to_send = std::string(argv[4]);
+
+
     //std::cout<<<<std::endl;
   if(camera_type.find("zed") != std::string::npos && tracking_type.find("mediapipe") != std::string::npos){
     std::cout<<"Let's use zed"<<std::endl;
@@ -783,9 +790,11 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     double distance_2 = 0.0;
     int count_hand_not_found_1 = 0, count_hand_not_found_2 = 0;
     double t1, t2, t3, t4;
+    double rot1,c1_x,c1_y; //rotation and hand1 center
     double t5, t6, t7, t8;
     std::vector<double> hand1_l1, hand1_l2, hand1_l3, hand1_l4;
     std::vector<double> hand2_l1, hand2_l2, hand2_l3, hand2_l4;
+    std::vector<double> hand1_rot, hand1_center_x,hand1_center_y;
     std::vector<float> hand1_finger_distances;
 
     width = camera_config.resolution.width;
@@ -900,8 +909,55 @@ absl::Status RunMPPGraph(int argc, char** argv) {
             //     std::cout << "  kpt x " << it->pt.x << ", y " << it->pt.y << ", size " << it->size << "\n";
             //     }
             // }
-            {
-                if (GoodContours.size() == num_hands_bycolor*2){
+            {   
+                //Find one finger
+                if(fingers_info_to_send.find("centroid") != std::string::npos && GoodContours.size() == num_hands_bycolor*1){
+                    std::vector<cv::Point> centers; 
+                    for (int i=0; i<GoodContours.size(); i++){
+                        cv::Moments M = cv::moments(GoodContours[i]);
+                        cv::Point center(M.m10/M.m00, M.m01/M.m00);
+                        centers.push_back(center);
+                    }
+                    hand_1_closed = false;
+                    hand_1_active = true;
+                    
+                        myvector->push_back(1); //num_hands
+                        //HAND 1
+                        myvector->push_back(int(hand_1_closed)); //hand 1 closed
+                        myvector->push_back(int(hand_1_active)); //hand 1 closed
+                        // t1 = movingAverage(hand1_l1,keypoints[0].pt.x * SCALE);
+                        // t2 = movingAverage(hand1_l2,keypoints[0].pt.y* SCALE);
+                        // t3 = movingAverage(hand1_l3,keypoints[1].pt.x* SCALE,10);
+                        // t4 = movingAverage(hand1_l4,keypoints[1].pt.y* SCALE,10);
+                        t3 = movingAverage(hand1_l1,centers[0].x * scale_dueto_crop * SCALE,2);
+                        t4 = movingAverage(hand1_l2,centers[0].y * scale_dueto_crop * SCALE,2);
+                        t1 = movingAverage(hand1_l3,centers[0].x * scale_dueto_crop * SCALE,2);
+                        t2 = movingAverage(hand1_l4,centers[0].y * scale_dueto_crop * SCALE,2);
+                        
+                        //Get hand state
+                        std::pair index = std::make_pair(t1, t2);
+                        std::pair thumb = std::make_pair(t3, t4);
+                        HandState hand_1_state = neutral;
+                        detectHandState(hand1_finger_distances,thumb,index,hand_1_state,8);
+                        rot1 = movingAverage(hand1_rot,-calculateRotationAngle(thumb,index) + M_PI_2,5);
+                        c1_x = movingAverage(hand1_center_x,(thumb.first+index.first) / 2,5);
+                        c1_y = movingAverage(hand1_center_y,(thumb.second+index.second) / 2,5);
+                        myvector->push_back(hand_1_state); //pointing finger
+
+                        myvector->push_back(t1); //pointing finger
+                        myvector->push_back(t2);
+                        myvector->push_back(t3); //thumb finger
+                        myvector->push_back(t4);
+                        myvector->push_back(rot1*1000); //multiply to "cast" to int with 3 precision digits
+                        myvector->push_back(c1_x);
+                        myvector->push_back(c1_y);
+
+                        condvar->notify_one();
+                        count_hand_not_found_1 = 0;
+                    
+                }
+                //Send two fingers info, not just centroid
+                else if (GoodContours.size() == num_hands_bycolor*2 && fingers_info_to_send.find("centroid") == std::string::npos){
                     std::vector<cv::Point> centers; 
                     for (int i=0; i<GoodContours.size(); i++){
                         cv::Moments M = cv::moments(GoodContours[i]);
@@ -932,13 +988,20 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                         std::pair thumb = std::make_pair(t3, t4);
                         HandState hand_1_state = neutral;
                         detectHandState(hand1_finger_distances,thumb,index,hand_1_state,8);
-                        std::cout<<"Hand state: "<<hand_1_state<<" t4: "<<t4<<std::endl;
+                        rot1 = movingAverage(hand1_rot,-calculateRotationAngle(thumb,index) + M_PI_2,5);
+                        c1_x = movingAverage(hand1_center_x,(thumb.first+index.first) / 2,5);
+                        c1_y = movingAverage(hand1_center_y,(thumb.second+index.second) / 2,5);
                         myvector->push_back(hand_1_state); //pointing finger
 
                         myvector->push_back(t1); //pointing finger
                         myvector->push_back(t2);
                         myvector->push_back(t3); //thumb finger
                         myvector->push_back(t4);
+                        myvector->push_back(rot1*1000); //multiply to "cast" to int with 3 precision digits
+                        myvector->push_back(c1_x);
+                        myvector->push_back(c1_y);
+                        std::cout<<"Hand state: "<<hand_1_state<<" t4: "<<t4<<" rot: "<<rot1<<std::endl;
+
                         condvar->notify_one();
                         count_hand_not_found_1 = 0;
                     }
@@ -949,7 +1012,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                 }
                 // Clear the gesture array.
                 if (count_hand_not_found_1>COUNT_NOT_HANDS){
-                    hand1_l1.clear(); hand1_l2.clear(); hand1_l3.clear(); hand1_l4.clear();
+                    hand1_l1.clear(); hand1_l2.clear(); hand1_l3.clear(); hand1_l4.clear(); hand1_rot.clear();
                 }
                 if (count_hand_not_found_2>COUNT_NOT_HANDS){
                     hand2_l1.clear(); hand2_l2.clear(); hand2_l3.clear(); hand2_l4.clear();
