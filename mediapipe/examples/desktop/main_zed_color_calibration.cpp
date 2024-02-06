@@ -105,6 +105,8 @@ extern "C" { uint32_t GetACP(); }
 //is the amount of width and height that is going to be cropped
 # define SCALE 2.0
 # define CROP_RATIO 0.7/3.0
+# define CROP_RATIO_X 0.7/3.0
+# define CROP_RATIO_Y 0.7/3.0
 # define handness 0 // 0 for default (center), 1 for left, 2 for right
 constexpr char kInputStream[] = "input_video";
 constexpr char kWindowName[] = "MediaPipe";
@@ -461,8 +463,8 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     // Setting the depth confidence parameters
     //runParameters.confidence_threshold = 50;
     runParameters.confidence_threshold = 50;
-    runParameters.sensing_mode = sl::SENSING_MODE::FILL;
-    runParameters.texture_confidence_threshold = 100;
+    // runParameters.sensing_mode = sl::SENSING_MODE::FILL;
+    runParameters.enable_fill_mode = true;
 
     LOG(INFO) << "Start grabbing and processing frames.";
     bool grab_frames = true;
@@ -486,7 +488,7 @@ absl::Status RunMPPGraph(int argc, char** argv) {
         // Check that a new image is successfully acquired
         if (zed.grab(runParameters) == sl::ERROR_CODE::SUCCESS) {
             // retrieve the current 3D coloread point cloud in GPU
-            zed.retrieveImage(image_zed, sl::VIEW::LEFT); // Retrieve left image
+            zed.retrieveImage(image_zed, sl::VIEW::RIGHT); // Retrieve left image
             zed.retrieveMeasure(point_cloud, sl::MEASURE::DEPTH, sl::MEM::GPU);
             //viewer.updatePointCloud(point_cloud);
             current_ticks = clock();
@@ -776,7 +778,8 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     // Setting the depth confidence parameters
     //runParameters.confidence_threshold = 50;
     runParameters.confidence_threshold = 50;
-    runParameters.sensing_mode = sl::SENSING_MODE::FILL;
+    // runParameters.sensing_mode = sl::SENSING_MODE::FILL;
+    runParameters.enable_fill_mode = true;
     runParameters.texture_confidence_threshold = 100;
 
     LOG(INFO) << "Start grabbing and processing frames.";
@@ -807,12 +810,15 @@ absl::Status RunMPPGraph(int argc, char** argv) {
     int frame_count = 0;
     bool show_image = true;
     double scale_dueto_crop = 1.0/(CROP_RATIO*2.0);
+    double scale_dueto_crop_x = 1.0/(CROP_RATIO_X*2.0);
+    double scale_dueto_crop_y = 1.0/(CROP_RATIO_Y*2.0);
+    double offset_x = 1.0; // offset has to go from -1 to 1, 0 means no offset
     while (grab_frames) {
         // Main Loop
         // Check that a new image is successfully acquired
         if (zed.grab(runParameters) == sl::ERROR_CODE::SUCCESS) {
             // retrieve the current 3D coloread point cloud in GPU
-            zed.retrieveImage(image_zed, sl::VIEW::LEFT); // Retrieve left image
+            zed.retrieveImage(image_zed, sl::VIEW::RIGHT); // Retrieve left image
             //zed.retrieveMeasure(point_cloud, sl::MEASURE::DEPTH, sl::MEM::GPU);
             //viewer.updatePointCloud(point_cloud);
             current_ticks = clock();
@@ -824,10 +830,15 @@ absl::Status RunMPPGraph(int argc, char** argv) {
 
             cv::flip(image_cv, image_cv, /*flipcode=HORIZONTAL*/ 1);
             //std::cout<<CROP_RATIO/2.0<<std::endl;
-            int roi_x = image_cv.cols / (1.0/(CROP_RATIO/2.0));  // 1/3 of the width
-            int roi_y = image_cv.rows / (1.0/(CROP_RATIO/2.0));  // 1/3 of the height
-            int roi_width = image_cv.cols * (CROP_RATIO*2.0);    // 2/3 of the width
-            int roi_height = image_cv.rows * (CROP_RATIO*2.0);   // 2/3 of the height
+            // int roi_x = image_cv.cols / (1.0/(CROP_RATIO/2.0));  // 1/3 of the width
+            // int roi_y = image_cv.rows / (1.0/(CROP_RATIO/2.0));  // 1/3 of the height
+            // int roi_width = image_cv.cols * (CROP_RATIO*2.0);    // 2/3 of the width
+            // int roi_height = image_cv.rows * (CROP_RATIO*2.0);   // 2/3 of the height
+
+            int roi_x = (1 + offset_x) * image_cv.cols / (1.0/(CROP_RATIO_X/2.0));  // 1/3 of the width
+            int roi_y = image_cv.rows / (1.0/(CROP_RATIO_Y/2.0));  // 1/3 of the height
+            int roi_width = image_cv.cols * (CROP_RATIO_X*2.0);    // 2/3 of the width
+            int roi_height = image_cv.rows * (CROP_RATIO_Y*2.0);   // 2/3 of the height
             //std::cout<<roi_x<<"  "<<roi_y<<"  "<<roi_width<<"  "<<roi_height<<std::endl;
 
             // Create the rectangle ROI
@@ -929,10 +940,10 @@ absl::Status RunMPPGraph(int argc, char** argv) {
                         // t2 = movingAverage(hand1_l2,keypoints[0].pt.y* SCALE);
                         // t3 = movingAverage(hand1_l3,keypoints[1].pt.x* SCALE,10);
                         // t4 = movingAverage(hand1_l4,keypoints[1].pt.y* SCALE,10);
-                        t3 = movingAverage(hand1_l1,centers[0].x * scale_dueto_crop * SCALE,2);
-                        t4 = movingAverage(hand1_l2,centers[0].y * scale_dueto_crop * SCALE,2);
-                        t1 = movingAverage(hand1_l3,centers[0].x * scale_dueto_crop * SCALE,2);
-                        t2 = movingAverage(hand1_l4,centers[0].y * scale_dueto_crop * SCALE,2);
+                        t3 = movingAverage(hand1_l1,centers[0].x * scale_dueto_crop_x * SCALE,2);
+                        t4 = movingAverage(hand1_l2,centers[0].y * scale_dueto_crop_y * SCALE,2);
+                        t1 = movingAverage(hand1_l3,centers[0].x * scale_dueto_crop_x * SCALE,2);
+                        t2 = movingAverage(hand1_l4,centers[0].y * scale_dueto_crop_y * SCALE,2);
                         
                         //Get hand state
                         std::pair index = std::make_pair(t1, t2);
