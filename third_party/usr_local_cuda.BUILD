@@ -9,7 +9,9 @@ cc_library(
 
     srcs = [
         "lib64/libcudart.so",
-        "lib64/libcudart.so.11.0",
+        # "lib64/libcudart.so.11.0",
+        "lib64/libcudart.so.12",
+
     ],
     includes = [
         "include",
