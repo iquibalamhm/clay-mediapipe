@@ -277,6 +277,7 @@ struct PlayMode : Mode {
 	bool touching = false;
 	bool isActive = false;
 	std::vector< Particle > particles;
+	std::vector< Particle > particles_backup;
 	//std::vector< Neighbor > neighbors;
 
 	const bool filter_signal  = false;
@@ -361,6 +362,8 @@ struct PlayMode : Mode {
 	float unit_line_spacing = 0.1f;
 	bool use_hand_centroid = true;
 	void reset_clay();
+	void reverse_1s_clay();
+
 	void shape_clay();
 	void reset_clay_line();
 	void tick_clay();
@@ -394,7 +397,7 @@ struct PlayMode : Mode {
 	std::string file_name = "";
 
 	double small_time_diff = 0.0f;	
-	
+	double one_sec_diff = 0.0f;
 	bool show_function_name = true;
 	bool show_function_line = true;
 	bool show_function_line_on_finished = false;
@@ -402,8 +405,8 @@ struct PlayMode : Mode {
 	bool show_fitted_line = true;
 	bool show_to_match_line_on_finished = true;
 	bool time_fixed = true;
-	inline static float TIME_LIMIT = 60.0f; //given in seconds
-	inline static float TIME_LIMIT_PER_FUNCTION = 60.0f; //given in seconds
+	inline static float TIME_LIMIT = 300.0f; //given in seconds
+	inline static float TIME_LIMIT_PER_FUNCTION = 300.0f; //given in seconds
 	SpatialGrid spatial_grid = SpatialGrid(box_max.x, box_max.y, unit_line_spacing);
 
 };

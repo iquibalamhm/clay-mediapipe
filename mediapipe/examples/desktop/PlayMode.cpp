@@ -48,10 +48,7 @@ boost::mutex serialMutex; // Mutex for serial port access
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 
 	if (evt.type == SDL_KEYDOWN) {
-		if (evt.key.keysym.sym == SDLK_BACKSPACE) {
-			std::cout<<"reset clay from space bar"<<std::endl;
-			// reset_clay();
-		} else if (evt.key.keysym.sym == SDLK_SPACE) {
+		if (evt.key.keysym.sym == SDLK_SPACE || evt.key.keysym.sym == SDLK_c) {
 			//tick_clay();
 			interaction = true;
 		} else if(evt.key.keysym.sym == SDLK_LEFT){
@@ -71,9 +68,9 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			use_haptics = !use_haptics;
 			std::cout<<"use_haptics: "<<use_haptics<<std::endl;
 		}
-		else if(evt.key.keysym.sym == SDLK_t){
-			move_together = !move_together;
-			std::cout<<"move_together: "<<move_together<<std::endl;
+		else if(evt.key.keysym.sym == SDLK_u){
+		// 	// move_together = !move_together;
+			std::cout<<"left ctrl: "<<move_together<<std::endl;
 		}
 		else if(evt.key.keysym.sym == SDLK_a){
 			use_moving = true;
@@ -85,7 +82,8 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			use_moving = false;
 			std::cout<<"molding: "<<use_molding<<std::endl;
 		}
-		else if(evt.key.keysym.sym == SDLK_s){
+		else if(evt.key.keysym.sym == SDLK_d){
+			std::cout<<"current location: "<<location<<std::endl;
 			if(location == scenes_mode){
 				switch (state)
 				{
@@ -103,12 +101,10 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 					break;
 				}
 			}
-		}
-		else if (evt.key.keysym.sym == SDLK_c){
-			interaction = true;
 
 		}
-		else if (evt.key.keysym.sym == SDLK_k){
+		else if (evt.key.keysym.sym == SDLK_e){ //On button
+		std::cout<<"current location: "<<location<<std::endl;
 			if(location == scenes_mode){
 				switch (state)
 				{
@@ -127,6 +123,14 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 					break;
 				}
 			}
+			if(location == donemode){
+				std::cout<<"done with matching"<<std::endl;
+				location = mainmenu;
+				Mode::current = shared_from_this();
+			}
+			reset_clay();
+
+
 		}
 		else if(evt.key.keysym.sym == SDLK_o){
 			location = donemode;
@@ -439,6 +443,26 @@ void PlayMode::enter_scene(float elapsed) {
             //add_text(" ");
 			at.y -= 0.01; //gap before choices
 
+			
+			add_choice("Line Slope", [this](MenuMode::Item const &){
+                location = scenes_mode;
+				scene  = line_slope;
+				state = begin;
+				show_to_match_line_on_finished = true;
+				show_to_match_line = false;
+				show_function_name = false;
+
+                Mode::current = shared_from_this();
+				std::vector<std::vector<double>> function_coeffs = {
+					{0,-0.5,0.0}, //y = ax^2 + bx + c
+				};
+				
+				current_order = scene_order(function_coeffs);
+				parse_function(current_order.functions[0]);
+				std::cout<<"function parsed slope"<<std::endl;
+				time_fixed = true;
+				reset_clay();
+            });
 			add_choice("Line Intercept", [this](MenuMode::Item const &){
                 //location = instructions;
 				// next_location = scenes_mode;
@@ -451,43 +475,18 @@ void PlayMode::enter_scene(float elapsed) {
 				show_to_match_line = false;
 
                 Mode::current = shared_from_this();
-				std::vector<std::vector<double>> function_coeffs = {
-					{0.0,0.0,-3.0}, //y = ax^2 + bx + c
-				};
-				std::vector<std::vector<double>> function_coeffs = {
-					{0.0,1.0,-2.0}, //y = ax^2 + bx + c
-				};
-				current_order = scene_order(function_coeffs);
-				parse_function(current_order.functions[0]);
-				time_fixed = true;
-				reset_clay();
-            });
-			
-			add_choice("Line Slope", [this](MenuMode::Item const &){
-                location = scenes_mode;
-				scene  = line_slope;
-				state = begin;
-				show_to_match_line_on_finished = true;
-				show_to_match_line = false;
-				show_function_name = false;
-
-                Mode::current = shared_from_this();
 				// std::vector<std::vector<double>> function_coeffs = {
-				// 	{0,-2.0,0}, //ax^2 + bx + c
-				// 	{0,-1.0,0},
-				// 	{0,1.0,0},
-				// 	{0,2.0,0.0},
+				// 	{0.0,0.0,-3.0}, //y = ax^2 + bx + c
 				// };
 				std::vector<std::vector<double>> function_coeffs = {
-					{0,2.0,1.0},
+					{0.0,0.5,1.0}, //y = ax^2 + bx + c
 				};
-				
 				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);
-				std::cout<<"function parsed slope"<<std::endl;
 				time_fixed = true;
 				reset_clay();
             });
+
 			add_choice("Parabola Concavity", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene = parabola_concavity;
@@ -506,25 +505,45 @@ void PlayMode::enter_scene(float elapsed) {
 				parse_function(current_order.functions[0]);				
 				reset_clay();
             });
-			add_choice("Parabola Vertex", [this](MenuMode::Item const &){
+			add_choice("Parabola Intercept", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene = parabola_vertex;
 				state = begin;
-				show_to_match_line_on_finished = true;
 				show_function_name = false;
+				show_to_match_line_on_finished = true;
 				show_to_match_line = false;
                 Mode::current = shared_from_this();
-				std::vector<std::string> function_names = {
-					"(x-4)^2",
-					"(x-2)^2",
-					"(x+0)^2",
-					"(x+3)^2",
-					"(x+5)^2",
+				std::vector<std::vector<double>> function_coeffs = {
+					// {0.5,0,0}, //ax^2 + bx + c
+					{0.1,0,-1},
+					// {-0.1,0,0},
+					// {-0.5,0,0},
 				};
-				current_order = scene_order(function_names);
+				current_order = scene_order(function_coeffs);
 				parse_function(current_order.functions[0]);				
 				reset_clay();
 			});
+
+			// add_choice("Parabola Vertex", [this](MenuMode::Item const &){
+            //     location = scenes_mode;
+			// 	scene = parabola_vertex;
+			// 	state = begin;
+			// 	show_to_match_line_on_finished = true;
+			// 	show_function_name = false;
+			// 	show_to_match_line = false;
+            //     Mode::current = shared_from_this();
+			// 	std::vector<std::string> function_names = {
+			// 		"(x-4)^2",
+			// 		"(x-2)^2",
+			// 		"(x+0)^2",
+			// 		"(x+3)^2",
+			// 		"(x+5)^2",
+			// 	};
+			// 	current_order = scene_order(function_names);
+			// 	parse_function(current_order.functions[0]);				
+			// 	reset_clay();
+			// });
+
 			add_choice("Custom", [this](MenuMode::Item const &){
                 location = scenes_mode;
 				scene = parabola_vertex;
@@ -878,8 +897,18 @@ void PlayMode::update(float elapsed) {
 	ticks_acc_filter += ticks;
 	//Added because mutex is failling
 	duration_acc += std::chrono::duration< double >(after - before).count();
+	auto curr_after = std::chrono::high_resolution_clock::now();
+	// one_sec_diff += std::chrono::duration< double >(curr_after - curr_before).count();
+	// if (one_sec_diff > 1.0f) {
+	// 	one_sec_diff = 0.0f;
+	// 	// Backup the current particles position
+	// 	std::vector<glm::vec2> particles_pos;
+	// 	particles_backup.clear();
+	// 	for (auto& p : particles) {
+	// 		particles_backup.push_back(p);
+	// 	}
+	// }
 	if (serial_port_name != "None"){
-		auto curr_after = std::chrono::high_resolution_clock::now();
 		
 		small_time_diff += std::chrono::duration< double >(curr_after - curr_before).count();
 		// std::cout<<"small_time_diff1: "<<small_time_diff<<std::endl;
@@ -1378,7 +1407,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 						glm::vec3(0.05f, 0.0f, 0.0f),
 						glm::vec3(0.0f, 0.05f, 0.0f),
 						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-					lines.draw_text("Press C to continue, S to skip",
+					lines.draw_text("Press e to continue, d to skip",
 						glm::vec3(0.1f, 1.07f, 0.0f), //Start position
 						glm::vec3(0.05f, 0.0f, 0.0f),
 						glm::vec3(0.0f, 0.05f, 0.0f),
@@ -1745,9 +1774,19 @@ void PlayMode::reset_clay() {
 	for (auto& particle : particles) {
 		spatial_grid.addParticle(&particle);
 	}
-	std::cout<<"Particles set to start position"<<std::endl;
+	//Copy to particles_backup
+	particles_backup.clear();
+	for (auto &p : particles) {
+		particles_backup.emplace_back(p);
+	}
 }
-
+void PlayMode::reverse_1s_clay() {
+	// Use particles_backup to reset particles
+	particles.clear();
+	for (auto &p : particles_backup) {
+		particles.emplace_back(p);
+	}
+}
 void PlayMode::shape_clay() {
     particles.clear();
     const uint32_t num_particles = 100; // Change this to adjust the number of particles
