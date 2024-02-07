@@ -1322,12 +1322,12 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		glm::vec3(axis_max.x + line_half_lenght, center_axis.y, 0.0f),
 		glm::vec3(0.05f, 0.0f, 0.0f),
 		glm::vec3(0.0f, 0.05f, 0.0f),
-		glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+		colors.black_text);
 	lines.draw_text("y",
 		glm::vec3(center_axis.x, axis_max.y + line_half_lenght, 0.0f),
 		glm::vec3(0.05f, 0.0f, 0.0f),
 		glm::vec3(0.0f, 0.05f, 0.0f),
-		glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+		colors.black_text);
 
 
 	//Horizontal mini lines along the y axis
@@ -1403,15 +1403,15 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					std::string st = "Mold the function y = ";
 					st.append(current_order.functions[current_order.curr_val].name);
 					lines.draw_text(st,
-						glm::vec3(0.1f, 1.15f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.15, 0.0f), //Start position
+						glm::vec3(0.08f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.08f, 0.0f),
+						colors.black_text);
 					lines.draw_text("Press e to continue, d to skip",
-						glm::vec3(0.1f, 1.07f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.03, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
 				}
 				break;
 			case inside:
@@ -1419,43 +1419,43 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				if (scene == experimental_1 || scene == experimental_2){
 					std::string st = "Play around as you wish";
 					lines.draw_text(st,
-						glm::vec3(0.1f, 1.15f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-					lines.draw_text("When you are done, press d",
-						glm::vec3(0.1f, 1.07f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.15, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
+					lines.draw_text("When you are done, press 'done' ",
+						glm::vec3(box_min.x + 0.15, box_max.y+0.03, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
 				}
 				else{
 					std::string st = "Mold the function y = ";
 					st.append(current_order.functions[current_order.curr_val].name);
 					lines.draw_text(st,
-						glm::vec3(0.1f, 1.15f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.15, 0.0f), //Start position
+						glm::vec3(0.08f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.08f, 0.0f),
+						colors.black_text);
 					lines.draw_text("Press S to skip ",
-						glm::vec3(0.1f, 1.07f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.03, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
 				}
 				if (use_molding){
 					lines.draw_text("MOLDING",
-						glm::vec3(axis_max.x-0.4, 1.025f, 0.0f), //Start position
-						glm::vec3(0.1f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.1f, 0.0f),
-						colors.green);
+						glm::vec3(box_max.x-0.27, box_max.y+0.07, 0.0f), //Start position
+						glm::vec3(0.15f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.15f, 0.0f),
+						colors.blue);
 				}
 				else if(use_moving){
 					lines.draw_text("MOVING",
-						glm::vec3(axis_max.x-0.4, 1.025f, 0.0f), //Start position
-						glm::vec3(0.1f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.1f, 0.0f),
-						colors.green);
+						glm::vec3(box_max.x-0.27, box_max.y+0.07, 0.0f), //Start position
+						glm::vec3(0.15f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.15f, 0.0f),
+						colors.lilac);
 				}
 
 				//draw particles
@@ -1589,10 +1589,10 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					time_left_text.append(std::to_string(int(TIME_LIMIT_PER_FUNCTION - curr_time)));
 					time_left_text.append(" s");
 					lines.draw_text(time_left_text, 
-						glm::vec3(axis_max.x-0.4, 1.15f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.7, box_max.y+0.03, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
 
 					std::vector<double> err;
 					std::ostringstream oss;
@@ -1660,18 +1660,24 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					}
 
 					lines.draw_text("Great, time's up",
-						glm::vec3(0.1f, 1.15f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						// glm::vec3(0.1f, 1.15f, 0.0f), //Start position
+						// glm::vec3(0.05f, 0.0f, 0.0f),
+						// glm::vec3(0.0f, 0.05f, 0.0f),
+						// glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.15, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
+
+
 					std::string st = "Correct function, y = ";
 					st.append(current_order.functions[current_order.curr_val-1].name);
 					st.append(" shown in green");	
 					lines.draw_text(st,
-						glm::vec3(0.1f, 1.1f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 0.15, box_max.y+0.03, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
 					std::string time_left_text = "Accuracy: ";
 					std::vector<double> err;
 					std::ostringstream oss;
@@ -1691,10 +1697,10 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					time_left_text.append(oss.str());
 					time_left_text.append(" %");
 					lines.draw_text(time_left_text, 
-						glm::vec3(axis_max.x-0.4, 1.15f, 0.0f), //Start position
-						glm::vec3(0.05f, 0.0f, 0.0f),
-						glm::vec3(0.0f, 0.05f, 0.0f),
-						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+						glm::vec3(box_min.x + 1.1, box_max.y+0.15, 0.0f), //Start position
+						glm::vec3(0.07f, 0.0f, 0.0f),
+						glm::vec3(0.0f, 0.07f, 0.0f),
+						colors.black_text);
 					if (to_match.name != "None"){
 						// std::vector<double> curr_coeffs = current_order.functions[current_order.curr_val-1].real_coeff;
 						std::vector<double> curr_coeffs = current_order.functions[current_order.curr_val-1].coeff;

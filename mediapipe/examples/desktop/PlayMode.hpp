@@ -331,7 +331,10 @@ struct PlayMode : Mode {
 		glm::u8vec4 blue = glm::u8vec4(0x31, 0x41, 0xD3, 0xff);
 		glm::u8vec4 green = glm::u8vec4(0x20, 0x95, 0x19, 0xff);
 		glm::u8vec4 light_green = glm::u8vec4(0x70, 0xF7, 0x62, 0xff);		
-		glm::u8vec4 light_gray = glm::u8vec4(0xa1, 0xa1, 0xa1, 0xff);		
+		glm::u8vec4 light_gray = glm::u8vec4(0xa1, 0xa1, 0xa1, 0xff);
+		glm::u8vec4 dark_gray = glm::u8vec4(0x40, 0x40, 0x40, 0xff);
+		glm::u8vec4 black_text = glm::u8vec4(0x00, 0x00, 0x00, 0x00);
+		glm::u8vec4 lilac = glm::u8vec4(0xa0, 0x64, 0xc9, 0xff);
 	}colors;
 	// float particle_radius = 0.015f;
 	float particle_radius = 0.007f;
@@ -349,8 +352,12 @@ struct PlayMode : Mode {
 	const float maxVel = 2.0f;
 	//float neighbor_radius = 0.2f;
 
-	glm::vec2 box_min = glm::vec2(0.0f, 0.0f);
-	glm::vec2 box_max = glm::vec2(1.5f, 1.0f);
+	// glm::vec2 box_min = glm::vec2(0.1f, 0.0f);
+	// glm::vec2 box_max = glm::vec2(1.5f, 1.0f);
+
+	glm::vec2 box_min = glm::vec2(-0.1f, -0.1f);
+	glm::vec2 box_max = glm::vec2(1.6f, 1.1f);
+
 	glm::vec2 axis_min = glm::vec2(0.1f, 0.05f);
 	glm::vec2 axis_max = glm::vec2(1.4f, 0.95f);
 	glm::vec2 center_axis = glm::vec2((axis_max.x-axis_min.x)/2 + axis_min.x, (axis_max.y-axis_min.y)/2 + axis_min.y);
